@@ -164,3 +164,15 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
 - **Camera keeps the character in view.** Zoom distance, min/max zoom and scroll speed × Overall (both ways, replacing
   the earlier max(1, Overall) rule for the camera only); near clip × min(1, Overall). The eye point (camera pivot and
   reach origin) follows head height when Legs or torso parts make the body taller or shorter.
+- **Jumps, and shrinking both ways** ("change the jumps too. Make sure shrinking impacts are accounted for too"). Jump
+  force × sqrt(Overall × Legs), so jump height × stride (distance grows faster, as ground speed also scales). Fall damage
+  counts the drop divided by stride (a giant takes no damage from what it can jump onto; a tiny player is hurt by a
+  table-height drop). Reach × Overall both ways (replacing max(1, Overall)), plus the eye's lift; a player steering a
+  ship keeps at least vanilla reach so it doesn't let go of the helm. Swimming starts at a water depth that scales with
+  Overall (the game's fixed 0.4 m margin is scaled too). The game's 2 m "camera too close, hide the player" distance
+  × min(1, Overall), so a tiny player stays visible.
+- **Review fixes.** Feet stay on the ground in any pose (the lowest sole is kept where vanilla's would be, using the sole
+  from the Player prefab's rest pose; skipped while swimming); Hips and Feet are compensated too. The camera pivot
+  follows that lift through a 0.5 s low-pass so long legs don't shake the camera. Rigid armour pieces scale like
+  weapons. Hover/build rays from the camera are 50 m × max(1, Overall). Player GetRadius/GetHeight follow Overall, so
+  monsters can reach a giant.

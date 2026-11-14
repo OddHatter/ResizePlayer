@@ -87,7 +87,7 @@ namespace Oddhatter.ResizePlayer
         private Vector3 _armatureOriginal;
         private bool _armatureMoved;
 
-        /// <summary>Left and right foot, and the ground point under each ankle in foot space, captured once while unscaled.</summary>
+        /// <summary>Left and right foot, and the ground point under each ankle in foot space (from the prefab's rest pose).</summary>
         private readonly Transform[] _feet = new Transform[2];
         private readonly Vector3[] _soleLocal = new Vector3[2];
         private readonly bool[] _soleKnown = new bool[2];
@@ -101,6 +101,8 @@ namespace Oddhatter.ResizePlayer
         private bool _eyeMoved;
         /// <summary>How far the eye is raised right now, in world metres (reach adds this).</summary>
         private float _eyeLift;
+        /// <summary>Time constant (s) of the eye's low-pass: several steps long, so the step-by-step bob is damped.</summary>
+        private const float EyeSmoothing = 0.5f;
 
         /// <summary>True while any scale of ours is on this player (so disabling restores once).</summary>
         private bool _applied;
@@ -313,7 +315,7 @@ namespace Oddhatter.ResizePlayer
         /// <summary>
         /// Bones are scaled after animation, so bigger legs, hips or feet would push the feet into the ground and smaller
         /// ones would leave them floating. Apply moves the skeleton (the hips' parent) to keep the lowest sole where
-        /// vanilla has it in the current pose; this finds the bones, that parent, and (once, unscaled) each sole point.
+        /// vanilla has it in the current pose; this finds the bones, that parent, and (once) each sole point.
         /// </summary>
         private void CacheLegData(Animator animator)
         {
@@ -323,12 +325,9 @@ namespace Oddhatter.ResizePlayer
             _feet[1] = animator.GetBoneTransform(HumanBodyBones.RightFoot);
             for (int i = 0; i < _feet.Length; i++)
             {
-                if (_feet[i] != null && !_soleKnown[i] && !_applied)
+                if (_feet[i] != null && !_soleKnown[i])
                 {
-                    Vector3 up = transform.up;
-                    Vector3 ankle = _feet[i].position;
-                    Vector3 ground = ankle - up * Vector3.Dot(ankle - transform.position, up);
-                    _soleLocal[i] = _feet[i].InverseTransformPoint(ground);
+                    _soleLocal[i] = RestSoleLocal(_feet[i]);
                     _soleKnown[i] = true;
                 }
             }
@@ -352,6 +351,36 @@ namespace Oddhatter.ResizePlayer
                     _armatureOriginal = armature.localPosition;
                 }
             }
+        }
+
+        /// <summary>
+        /// The ground point under the ankle, in foot space, from the Player prefab's rest pose (the prefab is never
+        /// animated, and every player shares its skeleton), so it doesn't depend on the pose the player happens to be in
+        /// when first seen (sitting, in bed, mid-jump). Falls back to the ankle itself if the prefab can't be measured.
+        /// </summary>
+        private Vector3 RestSoleLocal(Transform foot)
+        {
+            string path = foot.name;
+            for (Transform p = foot.parent; p != null && p != transform; p = p.parent)
+            {
+                path = p.name + "/" + path;
+            }
+            GameObject prefab = ZNetScene.instance != null ? ZNetScene.instance.GetPrefab("Player") : null;
+            Transform restFoot = prefab != null ? prefab.transform.Find(path) : null;
+            if (restFoot == null)
+            {
+                LogOnce("rest-foot", $"Couldn't find {path} in the Player prefab; big feet stand on their ankles.");
+                return Vector3.zero;
+            }
+            Transform root = prefab.transform;
+            float scale = root.lossyScale.y != 0f ? root.lossyScale.y : 1f;
+            float height = Vector3.Dot(restFoot.position - root.position, root.up) / scale;
+            float depth = BodyParts.RestSoleDepth(height);
+            if (s_logged.Add("rest-sole"))
+            {
+                ResizePlayerPlugin.Log.LogInfo($"Ankle height in the Player prefab's rest pose: {height:F3} m (sole depth used: {depth:F3} m).");
+            }
+            return restFoot.InverseTransformPoint(restFoot.position - root.up * (depth * scale));
         }
 
         private PartValues LocalTarget()
@@ -413,17 +442,19 @@ namespace Oddhatter.ResizePlayer
             if (_eye != null)
             {
                 // The head moves with the skeleton, plus however much the torso and neck below it grew in this pose.
+                // That bobs with every step (long legs bend through metres), and vanilla's eye never bobs: follow it
+                // smoothly, so the camera rises when standing up but doesn't shake while running.
                 float lift = groundOffset;
                 if (_head != null && _head.parent != null && CollectChain(_head.parent, _head.position, up))
                 {
                     lift += BodyParts.CurrentVertical(_chain) - BodyParts.VanillaVertical(_chain);
                 }
-                if (Mathf.Abs(lift) > 1e-4f || _eyeMoved)
+                _eyeLift = BodyParts.SmoothToward(_eyeLift, lift, Time.deltaTime, EyeSmoothing);
+                if (Mathf.Abs(_eyeLift) > 1e-4f || _eyeMoved)
                 {
-                    _eye.localPosition = _eyeOriginal + _eye.parent.InverseTransformVector(up * lift);
-                    _eyeMoved = Mathf.Abs(lift) > 1e-4f;
+                    _eye.localPosition = _eyeOriginal + _eye.parent.InverseTransformVector(up * _eyeLift);
+                    _eyeMoved = Mathf.Abs(_eyeLift) > 1e-4f;
                 }
-                _eyeLift = lift;
             }
 
             _applied = true;

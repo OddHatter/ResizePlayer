@@ -12,7 +12,8 @@ or huge hands.
 - Weapons, shields, helmets, hair and anything else you carry grow and shrink with the body part holding them (so with
   Overall, and with Hands or Head).
 - You move faster or slower with your stride: speed follows your leg length (Overall x Legs), at the normal step rate.
-  Jumps go that many times as high and far, and fall damage counts drops in your own body lengths.
+  Jumps go that many times as high (their length changes even more, as your speed does too), and fall damage counts drops in your own body
+  lengths.
 - The camera follows your size, so you always see your character the same way.
 - Edits to the config file apply right away, while the game is running.
 - Multiplayer: friends who also have the mod see your sizes, and you see theirs.
@@ -42,17 +43,19 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
   player has to walk right up to things. Long legs or a long torso add the extra height of your eyes, so a tall
   character still reaches the ground. A tiny player steering a ship keeps normal reach, so it doesn't let go of the
   helm.
-- **Swim depth** scales both ways: a giant wades through water a normal player swims in, and a tiny player swims in
-  shallow water.
+- **Swim depth** scales both ways: a giant wades through water a normal player swims in, and a tiny player starts
+  swimming in water about as deep, for its size, as a normal player does (not in every puddle).
 - **Speed**: walking, jogging, running, sneaking and swimming speed are multiplied by Overall x Legs (kept within
   0.25 to 10). The legs step at the normal rate; each stride is longer or shorter, so nothing slides.
-- **Jumps** go Overall x Legs times as high and as far. **Fall damage** scales the same way: it starts at a drop of 4 m
+- **Jumps** go Overall x Legs times as high; their length changes even more, since your speed does too. **Fall damage**
+  scales the same way: it starts at a drop of 4 m
   times that factor. A giant can jump down from anything it can jump onto, and for a tiny player a table-height drop is
   a real fall.
 - **Monsters** reach a giant's body: its hit capsule is giant too.
 - **Camera**: zoom distance, zoom limits and scroll speed scale with you, so the framing stays the same as a giant or a
   tiny. The camera also follows your head height when long legs or a long torso make you taller. A giant can still
-  point at, use and build on things all the way out at the furthest zoom.
+  point at, use and build on things all the way out at the furthest zoom, and a tiny player stays visible with the camera
+  close. The camera follows height changes smoothly, so long legs don't shake it while running.
 
 What doesn't change: damage, carry weight, stamina and melee weapon reach.
 

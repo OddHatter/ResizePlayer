@@ -121,6 +121,22 @@ namespace Oddhatter.ResizePlayer
         /// </summary>
         public static float Reach(float original, float overall, float eyeLift, bool steering)
             => original * ReachFactor(overall, steering) + Math.Max(0f, eyeLift);
+
+        /// <summary>The game hides the local player when the camera is closer than 2 m to their feet; a tiny player's camera always is.</summary>
+        public static float HideDistance(float overall) => 2f * Math.Min(1f, overall);
+
+        /// <summary>
+        /// Water depth at which swimming starts: the game uses (swim depth - 0.4 m). Swim depth is already scaled with
+        /// Overall; scale the 0.4 m margin too, or a tiny player would swim in a puddle.
+        /// </summary>
+        public static float SwimThreshold(float swimDepth, float overall) => Math.Max(0f, swimDepth - 0.4f * overall);
+
+        /// <summary>Moves current toward target as a first-order low-pass with the given time constant (seconds).</summary>
+        public static float SmoothToward(float current, float target, float dt, float timeConstant)
+            => timeConstant <= 0f ? target : current + (target - current) * (1f - (float)Math.Exp(-dt / timeConstant));
+
+        /// <summary>The Player prefab's rest-pose ankle height (metres); 0 (stand on the ankle) if it isn't plausible.</summary>
+        public static float RestSoleDepth(float ankleHeight) => ankleHeight > 0f && ankleHeight <= 0.5f ? ankleHeight : 0f;
     }
 
     /// <summary>One size per Part.</summary>

@@ -75,6 +75,26 @@ namespace ResizePlayer.Tests
 
         [Fact] public void LandingAltitude_no_fall_is_no_fall() => Assert.Equal(100f, BodyParts.LandingAltitude(99f, 100f, 0.25f));
 
+        // The game hides the player when the camera is within 2 m of their feet; a tiny player's camera is closer than that.
+        [Fact] public void HideDistance_tiny_shrinks_with_size() => Assert.Equal(0.5f, BodyParts.HideDistance(0.25f), 5);
+        [Fact] public void HideDistance_normal_and_giant_keep_vanilla() { Assert.Equal(2f, BodyParts.HideDistance(1f)); Assert.Equal(2f, BodyParts.HideDistance(10f)); }
+
+        // Swimming starts at (swim depth - 0.4 m) of water; swim depth is already scaled, the 0.4 margin must be too.
+        [Fact] public void SwimThreshold_tiny_needs_proportional_water() => Assert.Equal(0.4f, BodyParts.SwimThreshold(2f * 0.25f, 0.25f), 5);
+        [Fact] public void SwimThreshold_normal_is_vanilla() => Assert.Equal(1.6f, BodyParts.SwimThreshold(2f, 1f), 5);
+        [Fact] public void SwimThreshold_giant_scales() => Assert.Equal(16f, BodyParts.SwimThreshold(20f, 10f), 4);
+
+        // The camera pivot follows a pose-dependent lift; low-pass it so a long-legged run cycle doesn't shake the camera.
+        [Fact] public void SmoothToward_no_time_no_change() => Assert.Equal(1f, BodyParts.SmoothToward(1f, 5f, 0f, 0.5f));
+        [Fact] public void SmoothToward_one_time_constant_covers_63_percent() => Assert.Equal(1f + 4f * 0.632121f, BodyParts.SmoothToward(1f, 5f, 0.5f, 0.5f), 4);
+        [Fact] public void SmoothToward_long_wait_arrives() => Assert.Equal(5f, BodyParts.SmoothToward(1f, 5f, 100f, 0.5f), 4);
+        [Fact] public void SmoothToward_step_rate_wobble_is_damped() // 0.15 s half-step toward +1 m moves the eye < 30 cm
+            => Assert.True(BodyParts.SmoothToward(0f, 1f, 0.15f, 0.5f) < 0.3f);
+
+        // Ankle height above the ground in the Player prefab's rest pose; anything implausible falls back to the ankle.
+        [Fact] public void RestSoleDepth_plausible_is_kept() => Assert.Equal(0.08f, BodyParts.RestSoleDepth(0.08f));
+        [Fact] public void RestSoleDepth_below_ground_or_too_high_is_0() { Assert.Equal(0f, BodyParts.RestSoleDepth(-0.2f)); Assert.Equal(0f, BodyParts.RestSoleDepth(0.9f)); Assert.Equal(0f, BodyParts.RestSoleDepth(float.NaN)); }
+
         [Fact] public void All_hasEveryPartOnce() => Assert.Equal(Enum.GetValues(typeof(Part)).Length, BodyParts.All.Distinct().Count());
 
         [Fact] public void PartValues_identity_isAllOne() { var v = PartValues.Identity(); Assert.All(BodyParts.All, p => Assert.Equal(1f, v[p])); }

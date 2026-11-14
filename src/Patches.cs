@@ -186,6 +186,82 @@ namespace Oddhatter.ResizePlayer
     }
 
     /// <summary>
+    /// The game hides the local player when the camera is within 2 m of their feet (so it never clips through them). A
+    /// tiny player's camera is always that close, so they'd be invisible at every zoom: shrink the distance with them.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), nameof(Player.FixedUpdate))]
+    internal static class Player_HideNearCamera_Patch
+    {
+        private const float VanillaHideDistance = 2f;
+        private static readonly MethodInfo s_distance = AccessTools.Method(typeof(Vector3), nameof(Vector3.Distance));
+        private static readonly MethodInfo s_hideDistance = AccessTools.Method(typeof(Player_HideNearCamera_Patch), nameof(HideDistance));
+
+        internal static float HideDistance() => BodyParts.HideDistance(PlayerScaler.LocalOverall);
+
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            int replaced = 0;
+            CodeInstruction previous = null;
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (previous != null && previous.Calls(s_distance) &&
+                    instruction.opcode == OpCodes.Ldc_R4 && instruction.operand is float value && value == VanillaHideDistance)
+                {
+                    instruction.opcode = OpCodes.Call; // keeps the instruction's labels
+                    instruction.operand = s_hideDistance;
+                    replaced++;
+                }
+                previous = instruction;
+                yield return instruction;
+            }
+            if (replaced != 1)
+            {
+                ResizePlayerPlugin.Log.LogWarning(
+                    $"Expected one camera hide distance in Player.FixedUpdate, found {replaced}; a tiny player may be invisible.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Swimming starts in water deeper than (swim depth - 0.4 m). Swim depth follows Overall (see PlayerScaler), but the
+    /// 0.4 m margin doesn't: at 0.25 the threshold would be 0 and a tiny player would swim in any puddle. Scale the margin.
+    /// Only the local player: its own client decides when it swims.
+    /// </summary>
+    [HarmonyPatch(typeof(Character))]
+    internal static class Character_SwimThreshold_Patch
+    {
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(Character.InLiquidSwimDepth), new System.Type[0])]
+        private static bool Current(Character __instance, ref bool __result)
+        {
+            if (!IsScaledLocal(__instance))
+            {
+                return true; // vanilla
+            }
+            __result = __instance.InLiquidDepth() > Threshold(__instance);
+            return false;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(Character.InLiquidSwimDepth), typeof(float))]
+        private static bool AtDepth(Character __instance, float depth, ref bool __result)
+        {
+            if (!IsScaledLocal(__instance))
+            {
+                return true; // vanilla
+            }
+            __result = depth > Threshold(__instance);
+            return false;
+        }
+
+        private static bool IsScaledLocal(Character character)
+            => PlayerScaler.LocalOverall != 1f && character == Player.m_localPlayer;
+
+        private static float Threshold(Character character)
+            => BodyParts.SwimThreshold(character.m_swimDepth, PlayerScaler.LocalOverall);
+    }
+
+    /// <summary>
     /// The game ignores a player's scale in GetRadius and GetHeight (players are never scaled in vanilla). Monsters
     /// start an attack when within range of the target's radius, and hits are placed on its capsule, so a giant's
     /// would be unreachable: give them the scaled capsule.
