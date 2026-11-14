@@ -52,16 +52,22 @@ namespace Oddhatter.ResizePlayer
         public static float StrideFactor(float overall, float legs) => Clamp(overall * legs);
 
         /// <summary>
-        /// Jump speed multiplier: jump height goes with the square of take-off speed, so sqrt(stride) makes a jump
-        /// stride times as high (and as long). A giant clears what it towers over; a tiny player hops.
+        /// Jump speed multiplier: jump height goes with the square of take-off speed, so sqrt(stride) makes a giant's
+        /// jump stride times as high, clearing what it towers over. A tiny player keeps the vanilla jump (small animals
+        /// jump about as high as big ones; a quarter-height hop couldn't get onto full-size steps).
         /// </summary>
-        public static float JumpFactor(float stride) => (float)Math.Sqrt(stride);
+        public static float JumpFactor(float stride) => (float)Math.Sqrt(Math.Max(1f, stride));
 
         /// <summary>
-        /// The highest point of a fall, rewritten so the game's fall damage (4 m to 20 m) counts the drop in body
-        /// lengths: a stride-10 giant's 10 m drop counts as 1 m; a stride-0.25 tiny player's 1 m drop counts as 4 m.
+        /// The highest point of a fall, rewritten so the game's fall damage (4 m to 20 m) counts the drop in jump
+        /// heights: a stride-10 giant jumps 10x as high, so its 10 m drop counts as 1 m. A tiny player jumps the vanilla
+        /// height and takes vanilla fall damage, so it always lands its own jump unhurt.
         /// </summary>
-        public static float LandingAltitude(float maxAirAltitude, float y, float stride) => y + Math.Max(0f, maxAirAltitude - y) / stride;
+        public static float LandingAltitude(float maxAirAltitude, float y, float stride)
+        {
+            float jumpHeight = JumpFactor(stride) * JumpFactor(stride);
+            return y + Math.Max(0f, maxAirAltitude - y) / jumpHeight;
+        }
 
         /// <summary>Vertical extent of a bone chain as it is now: the sum of its segments' verticals.</summary>
         public static float CurrentVertical(IReadOnlyList<(float vertical, float parentFactor)> chain)
@@ -133,6 +139,23 @@ namespace Oddhatter.ResizePlayer
         /// <summary>Moves current toward target as a first-order low-pass with the given time constant (seconds).</summary>
         public static float SmoothToward(float current, float target, float dt, float timeConstant)
             => timeConstant <= 0f ? target : current + (target - current) * (1f - (float)Math.Exp(-dt / timeConstant));
+
+        /// <summary>
+        /// Walking speed in water. The game takes speed - speed^2 x drag x min(1, depth / (collider height / 3)): squared
+        /// speed means a 10x-speed giant is stopped dead (any speed over 20 m/s goes to zero or backwards), and the
+        /// unscaled collider height means ankle-deep water drags a giant fully. Apply it at vanilla scale instead: the
+        /// speed divided by stride, the depth against the scaled body, then scaled back up.
+        /// </summary>
+        public static float WadingSpeed(float speed, float depth, float colliderHeight, float drag, float stride, float overall)
+        {
+            if (depth <= 0f)
+            {
+                return speed;
+            }
+            float vanillaSpeed = speed / stride;
+            float immersion = Math.Min(1f, Math.Max(0f, depth / (colliderHeight * overall / 3f)));
+            return (vanillaSpeed - vanillaSpeed * vanillaSpeed * immersion * drag) * stride;
+        }
 
         /// <summary>The Player prefab's rest-pose ankle height (metres); 0 (stand on the ankle) if it isn't plausible.</summary>
         public static float RestSoleDepth(float ankleHeight) => ankleHeight > 0f && ankleHeight <= 0.5f ? ankleHeight : 0f;

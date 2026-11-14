@@ -64,11 +64,14 @@ namespace ResizePlayer.Tests
         [Fact] public void ReachFactor_tiny_keeps_vanilla_reach() => Assert.Equal(1f, BodyParts.ReachFactor(0.25f));
         [Fact] public void ReachFactor_giant_grows() => Assert.Equal(3f, BodyParts.ReachFactor(3f));
 
-        [Fact] public void JumpFactor_makes_jump_height_follow_stride() { Assert.Equal(2f, BodyParts.JumpFactor(4f), 5); Assert.Equal(0.5f, BodyParts.JumpFactor(0.25f), 5); Assert.Equal(1f, BodyParts.JumpFactor(1f)); }
+        [Fact] public void JumpFactor_giant_jumps_stride_times_as_high() { Assert.Equal(2f, BodyParts.JumpFactor(4f), 5); Assert.Equal(1f, BodyParts.JumpFactor(1f)); }
+        // A tiny player still jumps the vanilla height (small animals jump about as high as big ones), so it can get onto full-size steps.
+        [Fact] public void JumpFactor_tiny_keeps_vanilla_jump() => Assert.Equal(1f, BodyParts.JumpFactor(0.25f));
 
         [Fact] public void LandingAltitude_giant_fall_counts_as_shorter() => Assert.Equal(101f, BodyParts.LandingAltitude(110f, 100f, 10f), 4);
 
-        [Fact] public void LandingAltitude_tiny_fall_counts_as_longer() => Assert.Equal(104f, BodyParts.LandingAltitude(101f, 100f, 0.25f), 4);
+        // Falls count in jump heights: a tiny player jumps the vanilla height, so it must land its own jump unhurt.
+        [Fact] public void LandingAltitude_tiny_counts_like_vanilla() => Assert.Equal(101f, BodyParts.LandingAltitude(101f, 100f, 0.25f), 4);
 
         [Fact] public void LandingAltitude_normal_unchanged() => Assert.Equal(107f, BodyParts.LandingAltitude(107f, 100f, 1f));
 
@@ -93,6 +96,16 @@ namespace ResizePlayer.Tests
         // Ankle height above the ground in the Player prefab's rest pose; anything implausible falls back to the ankle.
         [Fact] public void RestSoleDepth_plausible_is_kept() => Assert.Equal(0.08f, BodyParts.RestSoleDepth(0.08f));
         [Fact] public void RestSoleDepth_below_ground_or_too_high_is_0() { Assert.Equal(0f, BodyParts.RestSoleDepth(-0.2f)); Assert.Equal(0f, BodyParts.RestSoleDepth(0.9f)); Assert.Equal(0f, BodyParts.RestSoleDepth(float.NaN)); }
+
+        // Wading drag is speed - speed^2 * depthFactor * drag, so at 10x speed it cancels all movement (zero at 20 m/s).
+        // Apply it at vanilla scale: the giant slows by the same fraction as a vanilla player in proportionally deep water.
+        [Fact] public void WadingSpeed_normal_is_vanilla() => Assert.Equal(7f - 49f * 0.05f, BodyParts.WadingSpeed(7f, 1f, 1.8f, 0.05f, 1f, 1f), 4);
+        [Fact] public void WadingSpeed_shallow_normal_is_vanilla() => Assert.Equal(7f - 49f * (0.3f / 0.6f) * 0.05f, BodyParts.WadingSpeed(7f, 0.3f, 1.8f, 0.05f, 1f, 1f), 4);
+        [Fact] public void WadingSpeed_giant_keeps_moving() => Assert.Equal(10f * (7f - 49f * 0.05f), BodyParts.WadingSpeed(70f, 10f, 1.8f, 0.05f, 10f, 10f), 3);
+        [Fact] public void WadingSpeed_giant_in_ankle_water_barely_slows() // 1 m is 1/6 of a 10x player's third-of-height
+            => Assert.Equal(10f * (7f - 49f * (1f / 6f) * 0.05f), BodyParts.WadingSpeed(70f, 1f, 1.8f, 0.05f, 10f, 10f), 3);
+        [Fact] public void WadingSpeed_tiny_slows_proportionally() => Assert.Equal(0.25f * (7f - 49f * 0.05f), BodyParts.WadingSpeed(1.75f, 0.25f, 1.8f, 0.05f, 0.25f, 0.25f), 4);
+        [Fact] public void WadingSpeed_dry_is_unchanged() => Assert.Equal(70f, BodyParts.WadingSpeed(70f, 0f, 1.8f, 0.05f, 10f, 10f));
 
         [Fact] public void All_hasEveryPartOnce() => Assert.Equal(Enum.GetValues(typeof(Part)).Length, BodyParts.All.Distinct().Count());
 

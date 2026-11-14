@@ -176,3 +176,10 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   follows that lift through a 0.5 s low-pass so long legs don't shake the camera. Rigid armour pieces scale like
   weapons. Hover/build rays from the camera are 50 m × max(1, Overall). Player GetRadius/GetHeight follow Overall, so
   monsters can reach a giant.
+- **Giant ground, giant water, tiny jump** ("when player is big, the falling animation is often activated and when in
+  water, movement is frozen"; "The jump when small is also too diminished"). The game's ground-contact test
+  (Character.OnCollisionStay) compares contact height with the unscaled collider radius and centre; it now uses the
+  local player's scaled capsule. Wading drag (Character.ApplyLiquidResistance) is speed - speed^2 x 0.05 x immersion,
+  which is zero at 20 m/s; for the scaled local player it is computed at vanilla speed and against the scaled body
+  height, then scaled back. Jump force x sqrt(max(1, stride)): a tiny player keeps the vanilla jump (as with reach), and
+  fall damage divides the drop by jump height (max(1, stride)), so a tiny player takes vanilla fall damage.

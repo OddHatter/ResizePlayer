@@ -12,8 +12,8 @@ or huge hands.
 - Weapons, shields, helmets, hair and anything else you carry grow and shrink with the body part holding them (so with
   Overall, and with Hands or Head).
 - You move faster or slower with your stride: speed follows your leg length (Overall x Legs), at the normal step rate.
-  Jumps go that many times as high (their length changes even more, as your speed does too), and fall damage counts drops in your own body
-  lengths.
+  A bigger stride jumps that many times as high, and fall damage counts drops in those jump heights; a tiny player
+  jumps and falls like a normal one.
 - The camera follows your size, so you always see your character the same way.
 - Edits to the config file apply right away, while the game is running.
 - Multiplayer: friends who also have the mod see your sizes, and you see theirs.
@@ -46,10 +46,12 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
   swimming in water about as deep, for its size, as a normal player does (not in every puddle).
 - **Speed**: walking, jogging, running, sneaking and swimming speed are multiplied by Overall x Legs (kept within
   0.25 to 10). The legs step at the normal rate; each stride is longer or shorter, so nothing slides.
-- **Jumps** go Overall x Legs times as high; their length changes even more, since your speed does too. **Fall damage**
-  scales the same way: it starts at a drop of 4 m
-  times that factor. A giant can jump down from anything it can jump onto, and for a tiny player a table-height drop is
-  a real fall.
+- **Jumps** go Overall x Legs times as high when that is above 1; their length changes even more, since your speed does
+  too. **Fall damage** scales the same way: it starts at a drop of 4 m times that factor, so a giant can jump down from
+  anything it can jump onto. Below 1 a tiny player keeps the normal jump height (small animals jump about as high as
+  big ones) and normal fall damage, so it can still hop onto full-size steps and land its own jumps unhurt.
+- **Ground and water**: a giant stands firmly on slopes and bumps, and wades through water slowed by the same share as a
+  normal player in water as deep for its size (the game's water drag would otherwise stop a fast giant dead).
 - **Monsters** reach a giant's body: its hit capsule is giant too.
 - **Camera**: zoom distance, zoom limits and scroll speed scale with you, so the framing stays the same as a giant or a
   tiny. The camera also follows your head height when long legs or a long torso make you taller. A giant can still

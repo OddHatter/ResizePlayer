@@ -125,8 +125,8 @@ namespace Oddhatter.ResizePlayer
     }
 
     /// <summary>
-    /// Fall damage (from 4 m, lethal at 20 m) counts the drop in body lengths, matching jumps that go stride times as
-    /// high: a giant can jump off what it can jump onto, and a tiny player is hurt by a drop that is a cliff to it.
+    /// Fall damage (from 4 m, lethal at 20 m) counts the drop in jump heights: a giant jumps stride times as high, so it
+    /// can jump off what it can jump onto. A tiny player jumps and falls like a vanilla one.
     /// UpdateGroundContact runs on the landing frame, reads the highest point of the fall, then resets it.
     /// </summary>
     [HarmonyPatch(typeof(Character), nameof(Character.UpdateGroundContact))]
@@ -139,6 +139,83 @@ namespace Oddhatter.ResizePlayer
                 __instance.m_maxAirAltitude = BodyParts.LandingAltitude(
                     __instance.m_maxAirAltitude, __instance.transform.position.y, PlayerScaler.LocalStride);
             }
+        }
+    }
+
+    /// <summary>
+    /// The game counts a collision as standing on the ground only if the contact is less than the collider's radius above
+    /// the feet and below its centre, read from the collider unscaled. A giant's capsule touches a slope or a bump
+    /// several metres up its rounded bottom, so it kept losing the ground (falling animation, no grip or control); a
+    /// tiny player's counted walls and ceilings as ground. Measure against the capsule at the local player's size.
+    /// </summary>
+    [HarmonyPatch(typeof(Character), nameof(Character.OnCollisionStay))]
+    internal static class Character_GroundContact_Patch
+    {
+        private static readonly MethodInfo s_radius = AccessTools.PropertyGetter(typeof(CapsuleCollider), nameof(CapsuleCollider.radius));
+        private static readonly MethodInfo s_center = AccessTools.PropertyGetter(typeof(CapsuleCollider), nameof(CapsuleCollider.center));
+        private static readonly MethodInfo s_scaledRadius = AccessTools.Method(typeof(Character_GroundContact_Patch), nameof(Radius));
+        private static readonly MethodInfo s_scaledCenter = AccessTools.Method(typeof(Character_GroundContact_Patch), nameof(Center));
+
+        internal static float Radius(CapsuleCollider collider) => collider.radius * FactorOf(collider);
+
+        internal static Vector3 Center(CapsuleCollider collider) => collider.center * FactorOf(collider);
+
+        // Runs for every character's every contact: compare references only. Only the owner runs the check, so only the
+        // local player's own body needs its size.
+        private static float FactorOf(CapsuleCollider collider)
+        {
+            Player local = Player.m_localPlayer;
+            return (object)local != null && ReferenceEquals(collider, local.m_collider) ? PlayerScaler.LocalOverall : 1f;
+        }
+
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            int radii = 0, centers = 0;
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.Calls(s_radius))
+                {
+                    instruction.opcode = OpCodes.Call; // instance getter -> static helper taking the collider; keeps labels
+                    instruction.operand = s_scaledRadius;
+                    radii++;
+                }
+                else if (instruction.Calls(s_center))
+                {
+                    instruction.opcode = OpCodes.Call;
+                    instruction.operand = s_scaledCenter;
+                    centers++;
+                }
+                yield return instruction;
+            }
+            if (radii != 1 || centers != 1)
+            {
+                ResizePlayerPlugin.Log.LogWarning(
+                    $"Expected one collider radius and one centre in Character.OnCollisionStay, found {radii} and {centers}; a giant may keep losing the ground.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Walking in water slows by speed squared (see BodyParts.WadingSpeed), which stops a fast giant dead. For the scaled
+    /// local player compute it at vanilla scale; this replaces Character.ApplyLiquidResistance, tar rules included.
+    /// </summary>
+    [HarmonyPatch(typeof(Character), nameof(Character.ApplyLiquidResistance))]
+    internal static class Character_LiquidResistance_Patch
+    {
+        private static bool Prefix(Character __instance, ref float speed)
+        {
+            if ((PlayerScaler.LocalStride == 1f && PlayerScaler.LocalOverall == 1f) || __instance != Player.m_localPlayer)
+            {
+                return true; // vanilla
+            }
+            float depth = __instance.InLiquidDepth();
+            if (depth <= 0f || __instance.m_seman.HaveStatusEffect(SEMan.s_statusEffectTared))
+            {
+                return false;
+            }
+            float drag = __instance.m_tarLevel > __instance.m_waterLevel ? 0.1f : 0.05f;
+            speed = BodyParts.WadingSpeed(speed, depth, __instance.m_collider.height, drag, PlayerScaler.LocalStride, PlayerScaler.LocalOverall);
+            return false;
         }
     }
 

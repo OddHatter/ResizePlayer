@@ -475,8 +475,8 @@ namespace Oddhatter.ResizePlayer
         /// <summary>
         /// Longer legs take longer strides: every movement speed (and the acceleration that reaches it) is multiplied by
         /// the stride factor. The animation keeps its normal step rate because Patches divides its speed input by the
-        /// same factor, so the bigger body's longer steps match the ground covered. Jumps go stride times as high and far
-        /// (Patches rescales fall damage to match).
+        /// same factor, so the bigger body's longer steps match the ground covered. Jumps go stride times as high when stride
+        /// is above 1, vanilla height below (Patches rescales fall damage to match).
         /// </summary>
         private void ApplySpeed(float stride)
         {
