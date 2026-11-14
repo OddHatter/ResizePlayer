@@ -70,6 +70,12 @@ namespace Oddhatter.ResizePlayer
         private bool _applied;
         private bool _wasLocal;
 
+        /// <summary>Vanilla reach and swim depth of this player, captured once.</summary>
+        private bool _reachOriginalsKnown;
+        private float _interactOriginal;
+        private float _placeOriginal;
+        private float _swimDepthOriginal;
+
         private void Awake()
         {
             _player = GetComponent<Player>();
@@ -86,6 +92,13 @@ namespace Oddhatter.ResizePlayer
             {
                 CaptureRootOriginal();
             }
+            if (!_reachOriginalsKnown)
+            {
+                _interactOriginal = _player.m_maxInteractDistance;
+                _placeOriginal = _player.m_maxPlaceDistance;
+                _swimDepthOriginal = _player.m_swimDepth;
+                _reachOriginalsKnown = true;
+            }
             if (!EnsureBones())
             {
                 return;
@@ -97,6 +110,7 @@ namespace Oddhatter.ResizePlayer
                 PartValues target = ResizePlayerPlugin.Enabled.Value ? LocalTarget() : null;
                 Apply(target);
                 LocalOverall = target != null ? target[Part.Overall] : 1f;
+                ApplyReach(LocalOverall);
                 LogSyncFlagsOnce();
             }
         }
@@ -262,6 +276,18 @@ namespace Oddhatter.ResizePlayer
             }
 
             _applied = true;
+        }
+
+        /// <summary>
+        /// Reach (interact, build) grows with a giant so it can still use things it towers over, but a tiny player keeps
+        /// vanilla reach. Swim depth follows size both ways: a giant wades, a tiny player swims in shallow water.
+        /// </summary>
+        private void ApplyReach(float overall)
+        {
+            float reach = BodyParts.ReachFactor(overall);
+            _player.m_maxInteractDistance = _interactOriginal * reach;
+            _player.m_maxPlaceDistance = _placeOriginal * reach;
+            _player.m_swimDepth = _swimDepthOriginal * overall;
         }
 
         private void Restore()
