@@ -47,8 +47,8 @@ namespace ResizePlayer.Tests
 
         [Fact] public void GroundOffset_no_legs_is_0() => Assert.Equal(0f, BodyParts.GroundOffset(new (float, float)[0]));
 
-        [Fact] public void Reach_adds_eye_lift() => Assert.Equal(13f, BodyParts.Reach(5f, 1f, 8f, steering: false), 5);
-        [Fact] public void Reach_tiny_shrinks_and_ignores_lowered_eye() => Assert.Equal(1.25f, BodyParts.Reach(5f, 0.25f, -0.3f, steering: false), 5);
+        [Fact] public void Reach_adds_eye_lift() => Assert.Equal(13f, BodyParts.Reach(5f, 1f, 8f), 5);
+        [Fact] public void Reach_tiny_keeps_vanilla_and_ignores_lowered_eye() => Assert.Equal(5f, BodyParts.Reach(5f, 0.25f, -0.3f), 5);
         [Fact] public void Clamp_max_is_10() => Assert.Equal(10f, BodyParts.Max);
         [Fact] public void Clamp_keeps_values_up_to_10() => Assert.Equal(7.5f, BodyParts.Clamp(7.5f));
         [Fact] public void Clamp_high() => Assert.Equal(10f, BodyParts.Clamp(100f));
@@ -61,9 +61,8 @@ namespace ResizePlayer.Tests
 
         [Fact] public void LocalFactor_extremes() { Assert.Equal(40f, BodyParts.LocalFactor(10f, 0.25f)); Assert.Equal(1f / 40f, BodyParts.LocalFactor(0.25f, 10f), 5); }
 
-        [Fact] public void ReachFactor_follows_size_both_ways() { Assert.Equal(0.25f, BodyParts.ReachFactor(0.25f, steering: false)); Assert.Equal(3f, BodyParts.ReachFactor(3f, steering: false)); }
-
-        [Fact] public void ReachFactor_tiny_steering_keeps_vanilla_reach() { Assert.Equal(1f, BodyParts.ReachFactor(0.25f, steering: true)); Assert.Equal(3f, BodyParts.ReachFactor(3f, steering: true)); }
+        [Fact] public void ReachFactor_tiny_keeps_vanilla_reach() => Assert.Equal(1f, BodyParts.ReachFactor(0.25f));
+        [Fact] public void ReachFactor_giant_grows() => Assert.Equal(3f, BodyParts.ReachFactor(3f));
 
         [Fact] public void JumpFactor_makes_jump_height_follow_stride() { Assert.Equal(2f, BodyParts.JumpFactor(4f), 5); Assert.Equal(0.5f, BodyParts.JumpFactor(0.25f), 5); Assert.Equal(1f, BodyParts.JumpFactor(1f)); }
 

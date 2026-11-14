@@ -39,10 +39,9 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
 ## What changes with Overall
 
 - **Hitbox and collision** scale with you.
-- **Reach** (using things, building) follows your size both ways: a giant can still open the chest at its feet, a tiny
-  player has to walk right up to things. Long legs or a long torso add the extra height of your eyes, so a tall
-  character still reaches the ground. A tiny player steering a ship keeps normal reach, so it doesn't let go of the
-  helm.
+- **Reach** (using things, building) grows with a giant, so it can still open the chest at its feet; a tiny player
+  keeps normal reach, so building with full-size pieces still works. Long legs or a long torso add the extra height of
+  your eyes, so a tall character still reaches the ground.
 - **Swim depth** scales both ways: a giant wades through water a normal player swims in, and a tiny player starts
   swimming in water about as deep, for its size, as a normal player does (not in every puddle).
 - **Speed**: walking, jogging, running, sneaking and swimming speed are multiplied by Overall x Legs (kept within

@@ -109,18 +109,17 @@ namespace Oddhatter.ResizePlayer
         }
 
         /// <summary>
-        /// Reach and build-distance multiplier: follows size both ways (a giant reaches what it towers over, a tiny
-        /// player only what is near). While steering a ship a tiny player keeps vanilla reach, or the game would let go
-        /// of the helm (it checks helm distance against this reach).
+        /// Reach and build-distance multiplier: a giant reaches what it towers over; a tiny player keeps vanilla reach
+        /// (shrinking it made building with full-size pieces impractical).
         /// </summary>
-        public static float ReachFactor(float overall, bool steering) => steering ? Math.Max(1f, overall) : overall;
+        public static float ReachFactor(float overall) => Math.Max(1f, overall);
 
         /// <summary>
         /// Reach in metres: the vanilla reach at this size, plus how far long legs or a long torso lifted the eye the
         /// game measures reach from, so a tall character still reaches the ground. A lowered eye takes nothing off.
         /// </summary>
-        public static float Reach(float original, float overall, float eyeLift, bool steering)
-            => original * ReachFactor(overall, steering) + Math.Max(0f, eyeLift);
+        public static float Reach(float original, float overall, float eyeLift)
+            => original * ReachFactor(overall) + Math.Max(0f, eyeLift);
 
         /// <summary>The game hides the local player when the camera is closer than 2 m to their feet; a tiny player's camera always is.</summary>
         public static float HideDistance(float overall) => 2f * Math.Min(1f, overall);

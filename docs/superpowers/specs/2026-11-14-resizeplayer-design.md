@@ -167,8 +167,8 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
 - **Jumps, and shrinking both ways** ("change the jumps too. Make sure shrinking impacts are accounted for too"). Jump
   force × sqrt(Overall × Legs), so jump height × stride (distance grows faster, as ground speed also scales). Fall damage
   counts the drop divided by stride (a giant takes no damage from what it can jump onto; a tiny player is hurt by a
-  table-height drop). Reach × Overall both ways (replacing max(1, Overall)), plus the eye's lift; a player steering a
-  ship keeps at least vanilla reach so it doesn't let go of the helm. Swimming starts at a water depth that scales with
+  table-height drop). Reach × max(1, Overall), plus the eye's lift (reach briefly
+  shrank with tiny players too; reverted at the user's request, since 1.25 m reach made building impractical). Swimming starts at a water depth that scales with
   Overall (the game's fixed 0.4 m margin is scaled too). The game's 2 m "camera too close, hide the player" distance
   × min(1, Overall), so a tiny player stays visible.
 - **Review fixes.** Feet stay on the ground in any pose (the lowest sole is kept where vanilla's would be, using the sole

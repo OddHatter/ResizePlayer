@@ -461,14 +461,14 @@ namespace Oddhatter.ResizePlayer
         }
 
         /// <summary>
-        /// Reach (interact, build) follows size both ways, plus however far long legs or a long torso raised the eye it
-        /// is measured from. Swim depth follows size both ways: a giant wades, a tiny player swims in shallow water.
+        /// Reach (interact, build) grows with a giant and stays vanilla for a tiny player, plus however far long legs or a
+        /// long torso raised the eye it is measured from. Swim depth follows size both ways: a giant wades, a tiny player
+        /// swims in shallow water.
         /// </summary>
         private void ApplyReach(float overall)
         {
-            bool steering = _player.m_doodadController != null;
-            _player.m_maxInteractDistance = BodyParts.Reach(_interactOriginal, overall, _eyeLift, steering);
-            _player.m_maxPlaceDistance = BodyParts.Reach(_placeOriginal, overall, _eyeLift, steering);
+            _player.m_maxInteractDistance = BodyParts.Reach(_interactOriginal, overall, _eyeLift);
+            _player.m_maxPlaceDistance = BodyParts.Reach(_placeOriginal, overall, _eyeLift);
             _player.m_swimDepth = _swimDepthOriginal * overall;
         }
 
