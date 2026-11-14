@@ -91,8 +91,6 @@ Deploys to the r2modman profile (`BepInEx/plugins/Oddhatter-ResizePlayer`) and w
 Game and profile paths default to Steam's Valheim folder and r2modman's `Default` profile; set your own `ValheimDir` and
 `ProfileDir` in a `ResizePlayer.local.props` next to the project (git-ignored), or pass them with `-p:`.
 
-Unit tests for the size rules: `dotnet test tests/ResizePlayer.Tests`.
-
 ## Install
 
 Install with r2modman or Thunderstore Mod Manager; they also install BepInExPack_Valheim, which this mod needs.

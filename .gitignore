@@ -6,3 +6,5 @@ tasks/
 .vs/
 .superpowers/
 ResizePlayer.local.props
+docs/
+tests/
