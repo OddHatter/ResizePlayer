@@ -16,6 +16,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Keep the build machine's folder out of the shipped DLL's embedded debug info (stack traces show /_/src/...). -->
     <PathMap>$(MSBuildProjectDirectory)=/_/,$(NuGetPackageRoot)=/_nuget/</PathMap>
+    <!-- The SDK's built-in SourceLink writes the local repo folder into the DLL; PathMap does not cover it. -->
+    <EnableSourceLink>false</EnableSourceLink>
 
     <!-- Defaults; override in ResizePlayer.local.props or on the command line (-p:ValheimDir=... -p:ProfileDir=...). -->
     <ValheimDir Condition="'$(ValheimDir)' == ''">/mnt/c/Program Files (x86)/Steam/steamapps/common/Valheim</ValheimDir>
