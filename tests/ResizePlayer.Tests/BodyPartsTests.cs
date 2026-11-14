@@ -152,6 +152,10 @@ namespace ResizePlayer.Tests
         [Fact] public void EffectScale_child_under_two_scaled_local_systems_cancels_both() => Assert.Equal(1f / 16f, BodyParts.EffectScale(4f, 2, false), 6);
         [Fact] public void EffectOffset_unchanged_when_no_local_parent() => Assert.Equal(1f, BodyParts.EffectOffset(4f, 0));
         [Fact] public void EffectOffset_cancels_scaled_local_parents() => Assert.Equal(1f / 16f, BodyParts.EffectOffset(4f, 2), 6);
+        [Fact] public void StretchLength_world_system_on_giant_divides_by_item_size() => Assert.Equal(0.1f, BodyParts.StretchLength(1f, 10f, true), 6);
+        [Fact] public void StretchLength_world_system_on_tiny_multiplies_back_up() => Assert.Equal(4f, BodyParts.StretchLength(1f, 0.25f, true), 6);
+        [Fact] public void StretchLength_vanilla_size_unchanged() => Assert.Equal(2.5f, BodyParts.StretchLength(2.5f, 1f, true));
+        [Fact] public void StretchLength_local_simulation_unchanged() => Assert.Equal(1f, BodyParts.StretchLength(1f, 10f, false));
 
         [Fact]
         public void PartValues_approxEquals()

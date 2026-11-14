@@ -9,6 +9,7 @@ namespace Oddhatter.ResizePlayer
     /// torch fire). Most use Local scaling mode, which sizes a system by its own transform scale only and ignores the
     /// item and bone scale above it, so they stayed vanilla size on a resized player. Each Local-mode system gets its
     /// own scale times the item's size; whatever hangs below it divides that back out (see BodyParts.EffectScale).
+    /// A world-simulated streak (Stretch render) system also gets its streak length corrected (see BodyParts.StretchLength).
     /// Values are always written from the originals, so size 1 restores vanilla exactly.
     /// </summary>
     internal sealed class ItemEffects
@@ -20,14 +21,21 @@ namespace Oddhatter.ResizePlayer
             public readonly Vector3 Position;
             public readonly int ScaledAbove;
             public readonly bool Local;
+            public readonly ParticleSystemRenderer Stretch;
+            public readonly float Length;
+            public readonly bool World;
 
-            public Node(Transform t, int scaledAbove, bool local)
+            public Node(Transform t, int scaledAbove, ParticleSystem local)
             {
                 T = t;
                 Scale = t.localScale;
                 Position = t.localPosition;
                 ScaledAbove = scaledAbove;
-                Local = local;
+                Local = local != null;
+                ParticleSystemRenderer r = local != null ? t.GetComponent<ParticleSystemRenderer>() : null;
+                Stretch = r != null && r.renderMode == ParticleSystemRenderMode.Stretch ? r : null;
+                Length = Stretch != null ? Stretch.lengthScale : 0f;
+                World = local != null && local.main.simulationSpace == ParticleSystemSimulationSpace.World;
             }
         }
 
@@ -72,7 +80,7 @@ namespace Oddhatter.ResizePlayer
             bool local = ps != null && ps.main.scalingMode == ParticleSystemScalingMode.Local;
             if (local || scaledAbove > 0)
             {
-                nodes.Add(new Node(t, scaledAbove, local));
+                nodes.Add(new Node(t, scaledAbove, local ? ps : null));
             }
             int below = local ? scaledAbove + 1 : 0;
             for (int i = 0; i < t.childCount; i++)
@@ -94,6 +102,10 @@ namespace Oddhatter.ResizePlayer
                 {
                     n.T.localScale = n.Scale * BodyParts.EffectScale(itemSize, n.ScaledAbove, n.Local);
                     n.T.localPosition = n.Position * BodyParts.EffectOffset(itemSize, n.ScaledAbove);
+                }
+                if (n.Stretch != null)
+                {
+                    n.Stretch.lengthScale = BodyParts.StretchLength(n.Length, itemSize, n.World);
                 }
             }
             _applied = itemSize;
@@ -138,10 +150,6 @@ namespace Oddhatter.ResizePlayer
                           $" render={(pr != null ? pr.renderMode.ToString() : "-")} scaleX/orig={ratio:0.###} lossy={t.lossyScale.x:0.###}" +
                           $" particles={ps.particleCount} bounds={bounds:0.###} m ({(mesh > 0f ? bounds / mesh : 0f):0.###} x mesh)");
                 AppendGeometry(sb, pr);
-                if (main.simulationSpace == ParticleSystemSimulationSpace.World && pr != null && pr.renderMode == ParticleSystemRenderMode.Stretch)
-                {
-                    AppendProbes(sb, ps);
-                }
             }
             ResizePlayerPlugin.Log.LogInfo(sb.ToString());
         }
@@ -222,33 +230,6 @@ namespace Oddhatter.ResizePlayer
             Vector3 ext = max - min;
             float k = 1f / (count * _applied);
             return $"n={count} centres {ext.x:0.###} x {ext.y:0.###} x {ext.z:0.###} |v|={vel * k:0.###} |total|={total * k:0.###}";
-        }
-
-        // Hidden copies of a world-space Stretch system, same modules, different renderer settings, run 0.6 s from rest
-        // and baked: the variant whose quads stay the same size per item size names the stretch term that scales wrong.
-        private void AppendProbes(StringBuilder sb, ParticleSystem src)
-        {
-            float k = _applied;
-            Probe(sb, src, "as is", r => { });
-            Probe(sb, src, "billboard", r => r.renderMode = ParticleSystemRenderMode.Billboard);
-            Probe(sb, src, "length/s", r => r.lengthScale /= k);
-            Probe(sb, src, "length/s vel/s", r => { r.lengthScale /= k; r.velocityScale /= k; });
-            Probe(sb, src, "length/s^2", r => r.lengthScale /= k * k);
-            Probe(sb, src, "length/s^2 vel/s", r => { r.lengthScale /= k * k; r.velocityScale /= k; });
-        }
-
-        private void Probe(StringBuilder sb, ParticleSystem src, string name, System.Action<ParticleSystemRenderer> tweak)
-        {
-            ParticleSystem ps = Object.Instantiate(src, src.transform.parent, false);
-            Transform t = ps.transform;
-            t.localPosition = src.transform.localPosition;
-            t.localRotation = src.transform.localRotation;
-            t.localScale = src.transform.localScale;
-            ParticleSystemRenderer r = ps.GetComponent<ParticleSystemRenderer>();
-            tweak(r);
-            ps.Simulate(0.6f, false, true, true);
-            sb.Append($"\n      probe {name}: ").Append(Particles(ps)).Append(" | bake: ").Append(Geometry(r) ?? "none");
-            Object.DestroyImmediate(ps.gameObject);
         }
 
         private string Path(Transform t)

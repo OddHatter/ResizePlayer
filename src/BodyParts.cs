@@ -209,6 +209,15 @@ namespace Oddhatter.ResizePlayer
         /// <summary>Position multiplier for the same transform: cancels the extra scale of the scaled Local-mode systems above it.</summary>
         public static float EffectOffset(float itemSize, int scaledAbove) => (float)Math.Pow(itemSize, -scaledAbove);
 
+        /// <summary>
+        /// Stretch render length scale (streak length in particle sizes) for a Local-mode, world-simulated particle system
+        /// scaled to an item itemSize x vanilla. Unity applies the system's own scale to that length twice, so FrostFire's
+        /// streaks came out itemSize times too long on a giant (a wall of flame) and too short on a tiny player; dividing
+        /// by itemSize leaves one. Measured in game on world-simulated systems only, so a local-simulated one keeps its value.
+        /// </summary>
+        public static float StretchLength(float lengthScale, float itemSize, bool worldSimulation)
+            => worldSimulation ? lengthScale / itemSize : lengthScale;
+
         /// <summary>The Player prefab's rest-pose ankle height (metres); 0 (stand on the ankle) if it isn't plausible.</summary>
         public static float RestSoleDepth(float ankleHeight) => ankleHeight > 0f && ankleHeight <= 0.5f ? ankleHeight : 0f;
     }
