@@ -195,3 +195,6 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   on a quarter-size body that lifts the feet and bends the knees. Those world-metre distances (component and per-foot
   m_footOffset, m_footStepHeight, m_stabalizeDistance) are multiplied by the foot bone's scale for every scaled player;
   m_footDownMax is compared in the body's scaled local space and is left alone.
+- **Feather cape in the air** ("now when the feather cape is equipped when giant, the fall speed is too fast"). The cap
+  stays x stride while IsOnGround() (slopes), and is x min(stride, sqrt(stride)) in the air: a stride-10 giant floats
+  down at about 3x the vanilla cape speed instead of 10x, and a tiny player is unchanged.

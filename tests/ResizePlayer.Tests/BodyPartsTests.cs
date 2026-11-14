@@ -87,8 +87,12 @@ namespace ResizePlayer.Tests
         [Fact] public void FootIkDistance_giant_foot_plants_ankle_higher() => Assert.Equal(1f, BodyParts.FootIkDistance(0.1f, 10f), 5);
 
         // The feather cape caps falling speed in m/s; it is also applied on the ground, so it must follow stride like run speed.
-        [Fact] public void MaxFallSpeed_giant_scales() => Assert.Equal(50f, BodyParts.MaxFallSpeed(5f, 10f), 4);
-        [Fact] public void MaxFallSpeed_tiny_scales() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f), 4);
+        [Fact] public void MaxFallSpeed_giant_on_ground_scales_with_stride() => Assert.Equal(50f, BodyParts.MaxFallSpeed(5f, 10f, true), 4);
+        // In the air the cape should still float a giant down: stride x the cap fell too fast (the world isn't scaled).
+        // sqrt(stride) keeps it gentle while a fast giant running off a crest still doesn't glide far.
+        [Fact] public void MaxFallSpeed_giant_in_air_scales_with_sqrt_stride() => Assert.Equal(10f, BodyParts.MaxFallSpeed(5f, 4f, false), 4);
+        [Fact] public void MaxFallSpeed_tiny_in_air_scales_with_stride() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f, false), 4);
+        [Fact] public void MaxFallSpeed_tiny_on_ground_scales_with_stride() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f, true), 4);
 
         [Fact] public void LandingAltitude_giant_fall_counts_as_shorter() => Assert.Equal(101f, BodyParts.LandingAltitude(110f, 100f, 10f), 4);
 

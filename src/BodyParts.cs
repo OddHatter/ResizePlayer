@@ -78,8 +78,14 @@ namespace Oddhatter.ResizePlayer
         /// </summary>
         public static float FootIkDistance(float original, float footScale) => original * footScale;
 
-        /// <summary>Feather-cape fall-speed cap at this stride: a speed in m/s, so it scales like run speed.</summary>
-        public static float MaxFallSpeed(float cap, float stride) => cap * stride;
+        /// <summary>
+        /// Feather-cape fall-speed cap (m/s) at this stride. The game applies it every frame, even on the ground, so there
+        /// it scales like run speed (a giant running downhill sinks faster than the vanilla cap and was held up off the
+        /// slope). In the air a giant's cap grows only with sqrt(stride): stride x the cap fell too fast for a cape, and
+        /// the vanilla cap would let a fast giant glide far off every crest. A tiny player's cap follows stride.
+        /// </summary>
+        public static float MaxFallSpeed(float cap, float stride, bool onGround)
+            => cap * (onGround ? stride : Math.Min(stride, (float)Math.Sqrt(stride)));
 
         /// <summary>
         /// The highest point of a fall, rewritten so the game's fall damage (4 m to 20 m) counts the drop in jump
