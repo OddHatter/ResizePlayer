@@ -42,6 +42,9 @@ namespace Oddhatter.ResizePlayer
             _nodes = nodes;
         }
 
+        /// <summary>How many transforms this resizes (for the log).</summary>
+        public int Count => _nodes.Count;
+
         /// <summary>Gone with its item (unequipped, swapped).</summary>
         public bool Destroyed => _item == null || _joint == null;
 

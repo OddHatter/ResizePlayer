@@ -205,5 +205,6 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   not actually shrink properly"). Most item particle systems use Local scaling mode, which ignores parent scale. For
   every attached item (AttachItem, including skinned ones, and AttachArmor) each Local-mode system's own scale is set to
   original x ScaleFactorAt(joint) every frame, and transforms below it divide that back out (scale and position). No
-  particle module values are touched (ParticleIntensityScaler rewrites those); world-space velocity and force follow the
-  emitter's transform scale in Unity 2017.1+.
+  particle module values are touched (ParticleIntensityScaler rewrites those). Unverified: whether world-space motion
+  (gravity, velocity, noise) and skinned-mesh emission points follow the system's own scale (a Unity bug fixed in 2017.1
+  suggests world velocity and force do); check FrostFire flame rise and Berzerkr particles on the blade in game.

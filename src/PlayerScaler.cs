@@ -203,6 +203,11 @@ namespace Oddhatter.ResizePlayer
             {
                 effects.Apply(ScaleFactorAt(joint));
                 _effects.Add(effects);
+                if (s_logged.Add("effects:" + item.name))
+                {
+                    ResizePlayerPlugin.Log.LogInfo(
+                        $"Item effects: {item.name} on {joint.name}, size {ScaleFactorAt(joint):0.###}, {effects.Count} transforms");
+                }
             }
         }
 
