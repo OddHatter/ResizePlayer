@@ -11,6 +11,21 @@ namespace ResizePlayer.Tests
 
         [Fact] public void Clamp_low() { Assert.Equal(0.25f, BodyParts.Clamp(0f)); Assert.Equal(0.25f, BodyParts.Clamp(-1f)); }
 
+        [Fact] public void StrideFactor_is_leg_length_overall_times_legs() => Assert.Equal(6f, BodyParts.StrideFactor(3f, 2f));
+        [Fact] public void StrideFactor_normal_is_1() => Assert.Equal(1f, BodyParts.StrideFactor(1f, 1f));
+        [Fact] public void StrideFactor_capped_at_size_range() { Assert.Equal(10f, BodyParts.StrideFactor(10f, 10f)); Assert.Equal(0.25f, BodyParts.StrideFactor(0.25f, 0.25f)); }
+        [Fact] public void HeadLift_vanilla_is_0()
+        {
+            var path = new[] { (0.5f, Part.Hips), (0.3f, Part.Chest) };
+            Assert.Equal(0f, BodyParts.HeadLift(PartValues.Identity(), 0.9f, path), 5);
+        }
+        [Fact] public void HeadLift_adds_leg_and_torso_growth()
+        {
+            var t = PartValues.Identity(); t[Part.Legs] = 2f; t[Part.Hips] = 3f; t[Part.Chest] = 0.5f;
+            var path = new[] { (0.5f, Part.Hips), (0.4f, Part.Chest) };
+            // legs: (2-1)*0.9 = 0.9; hips segment: 0.5*(3-1) = 1; chest segment: 0.4*(0.5-1) = -0.2
+            Assert.Equal(1.7f, BodyParts.HeadLift(t, 0.9f, path), 5);
+        }
         [Fact] public void Clamp_max_is_10() => Assert.Equal(10f, BodyParts.Max);
         [Fact] public void Clamp_keeps_values_up_to_10() => Assert.Equal(7.5f, BodyParts.Clamp(7.5f));
         [Fact] public void Clamp_high() => Assert.Equal(10f, BodyParts.Clamp(100f));

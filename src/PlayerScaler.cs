@@ -14,6 +14,12 @@ namespace Oddhatter.ResizePlayer
         /// <summary>Overall size of the local player in effect right now (1 when disabled or there is no local player).</summary>
         internal static float LocalOverall = 1f;
 
+        /// <summary>Movement speed multiplier of the local player in effect right now (1 when disabled).</summary>
+        internal static float LocalStride = 1f;
+
+        /// <summary>The local player's animation sync, whose speed inputs are divided by LocalStride (see Patches).</summary>
+        internal static ZSyncAnimation LocalZAnim;
+
         private static readonly (HumanBodyBones bone, Part part)[] BoneMap =
         {
             (HumanBodyBones.Hips, Part.Hips),
@@ -46,6 +52,7 @@ namespace Oddhatter.ResizePlayer
             public Transform T;
             public Part Part;
             public Part? ParentPart; // part of the nearest scaled ancestor bone; null = none
+            public Transform ParentT; // that ancestor bone; null = none
             public Vector3 Original;
         }
 
@@ -77,6 +84,15 @@ namespace Oddhatter.ResizePlayer
         private Vector3 _armatureOriginal;
         private bool _armatureMoved;
 
+        /// <summary>Distance from each bone to its scaled ancestor bone, unscaled; measured once, survives a recache.</summary>
+        private readonly Dictionary<Transform, float> _restSegments = new Dictionary<Transform, float>();
+        /// <summary>Torso segments from the hips up to the head: rest length and the part that stretches it.</summary>
+        private readonly List<(float length, Part parentPart)> _headPath = new List<(float length, Part parentPart)>();
+        /// <summary>The eye point (camera pivot, reach origin); raised or lowered with the head when body parts change height.</summary>
+        private Transform _eye;
+        private Vector3 _eyeOriginal;
+        private bool _eyeMoved;
+
         /// <summary>True while any scale of ours is on this player (so disabling restores once).</summary>
         private bool _applied;
         private bool _wasLocal;
@@ -86,6 +102,12 @@ namespace Oddhatter.ResizePlayer
         private float _interactOriginal;
         private float _placeOriginal;
         private float _swimDepthOriginal;
+        private float _walkSpeedOriginal;
+        private float _jogSpeedOriginal;
+        private float _runSpeedOriginal;
+        private float _crouchSpeedOriginal;
+        private float _swimSpeedOriginal;
+        private float _accelerationOriginal;
 
         private void Awake()
         {
@@ -108,6 +130,12 @@ namespace Oddhatter.ResizePlayer
                 _interactOriginal = _player.m_maxInteractDistance;
                 _placeOriginal = _player.m_maxPlaceDistance;
                 _swimDepthOriginal = _player.m_swimDepth;
+                _walkSpeedOriginal = _player.m_walkSpeed;
+                _jogSpeedOriginal = _player.m_speed;
+                _runSpeedOriginal = _player.m_runSpeed;
+                _crouchSpeedOriginal = _player.m_crouchSpeed;
+                _swimSpeedOriginal = _player.m_swimSpeed;
+                _accelerationOriginal = _player.m_acceleration;
                 _reachOriginalsKnown = true;
             }
             if (!EnsureBones())
@@ -123,6 +151,9 @@ namespace Oddhatter.ResizePlayer
                 Apply(target);
                 LocalOverall = target != null ? target[Part.Overall] : 1f;
                 ApplyReach(LocalOverall);
+                LocalStride = target != null ? BodyParts.StrideFactor(target[Part.Overall], target[Part.Legs]) : 1f;
+                ApplySpeed(LocalStride);
+                LocalZAnim = _player.m_zanim;
                 LogSyncFlagsOnce();
                 if (_nview.IsOwner())
                 {
@@ -180,6 +211,8 @@ namespace Oddhatter.ResizePlayer
             if (_wasLocal)
             {
                 LocalOverall = 1f;
+                LocalStride = 1f;
+                LocalZAnim = null;
             }
         }
 
@@ -231,12 +264,49 @@ namespace Oddhatter.ResizePlayer
                     if (partOf.TryGetValue(p, out Part parentPart))
                     {
                         bone.ParentPart = parentPart;
+                        bone.ParentT = p;
                         break;
                     }
                 }
             }
             CacheLegData(animator);
+            CacheHeadPath(animator);
             return _bones.Count > 0;
+        }
+
+        /// <summary>
+        /// Measures (once, while unscaled) the torso segments between the hips and the head, and finds the eye point, so
+        /// Apply can keep the eye at head height when legs or torso parts change how tall the body is.
+        /// </summary>
+        private void CacheHeadPath(Animator animator)
+        {
+            if (_eye == null && _player.m_eye != null && !_applied)
+            {
+                _eye = _player.m_eye;
+                _eyeOriginal = _eye.localPosition;
+                _eyeMoved = false;
+            }
+
+            float rootScale = transform.lossyScale.y;
+            var byTransform = new Dictionary<Transform, Bone>();
+            foreach (Bone bone in _bones)
+            {
+                byTransform[bone.T] = bone;
+                if (bone.ParentT != null && !_restSegments.ContainsKey(bone.T) && !_applied && rootScale > 0f)
+                {
+                    _restSegments[bone.T] = Vector3.Distance(bone.T.position, bone.ParentT.position) / rootScale;
+                }
+            }
+
+            _headPath.Clear();
+            Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
+            for (Transform t = head; t != null && byTransform.TryGetValue(t, out Bone b) && b.ParentT != null; t = b.ParentT)
+            {
+                if (_restSegments.TryGetValue(t, out float length))
+                {
+                    _headPath.Add((length, b.ParentPart.Value));
+                }
+            }
         }
 
         private bool AllBonesAlive()
@@ -335,6 +405,17 @@ namespace Oddhatter.ResizePlayer
                 _armatureMoved = legDelta != 0f;
             }
 
+            if (_eye != null)
+            {
+                float lift = BodyParts.HeadLift(target, Mathf.Max(0f, _restLegLength), _headPath);
+                if (Mathf.Abs(lift) > 1e-4f || _eyeMoved)
+                {
+                    Vector3 worldLift = transform.up * (lift * transform.lossyScale.y);
+                    _eye.localPosition = _eyeOriginal + _eye.parent.InverseTransformVector(worldLift);
+                    _eyeMoved = Mathf.Abs(lift) > 1e-4f;
+                }
+            }
+
             _applied = true;
         }
 
@@ -348,6 +429,43 @@ namespace Oddhatter.ResizePlayer
             _player.m_maxInteractDistance = _interactOriginal * reach;
             _player.m_maxPlaceDistance = _placeOriginal * reach;
             _player.m_swimDepth = _swimDepthOriginal * overall;
+        }
+
+        /// <summary>
+        /// Longer legs take longer strides: every movement speed (and the acceleration that reaches it) is multiplied by
+        /// the stride factor. The animation keeps its normal step rate because Patches divides its speed input by the
+        /// same factor, so the bigger body's longer steps match the ground covered.
+        /// </summary>
+        private void ApplySpeed(float stride)
+        {
+            _player.m_walkSpeed = _walkSpeedOriginal * stride;
+            _player.m_speed = _jogSpeedOriginal * stride;
+            _player.m_runSpeed = _runSpeedOriginal * stride;
+            _player.m_crouchSpeed = _crouchSpeedOriginal * stride;
+            _player.m_swimSpeed = _swimSpeedOriginal * stride;
+            _player.m_acceleration = _accelerationOriginal * stride;
+        }
+
+        /// <summary>
+        /// How much bigger than vanilla this mod currently makes the given transform: the product, from it up to the
+        /// player root, of each scaled transform's current scale over its original. Measured from the transforms
+        /// themselves, so it is right whenever it is called.
+        /// </summary>
+        internal float ScaleFactorAt(Transform t)
+        {
+            float factor = 1f;
+            for (Transform p = t; p != null && p != transform; p = p.parent)
+            {
+                if (_originals.TryGetValue(p, out Vector3 original) && original.x != 0f)
+                {
+                    factor *= p.localScale.x / original.x;
+                }
+            }
+            if (_rootOriginalKnown && _rootOriginal.x != 0f)
+            {
+                factor *= transform.localScale.x / _rootOriginal.x;
+            }
+            return factor;
         }
 
         private void Restore()
@@ -365,6 +483,11 @@ namespace Oddhatter.ResizePlayer
                 _armature.localPosition = _armatureOriginal;
             }
             _armatureMoved = false;
+            if (_eye != null)
+            {
+                _eye.localPosition = _eyeOriginal;
+            }
+            _eyeMoved = false;
             _applied = false;
         }
 

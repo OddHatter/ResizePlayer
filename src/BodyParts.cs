@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Oddhatter.ResizePlayer
 {
@@ -43,6 +44,27 @@ namespace Oddhatter.ResizePlayer
         /// own / parent. Both inputs are already clamped, so parent is never 0.
         /// </summary>
         public static float LocalFactor(float own, float parent) => own / parent;
+
+        /// <summary>
+        /// Movement speed multiplier: stride length follows leg length, which is Overall x Legs, at the normal step rate.
+        /// Kept within the size range so stacked extremes (10 x 10) don't produce physics-breaking speeds.
+        /// </summary>
+        public static float StrideFactor(float overall, float legs) => Clamp(overall * legs);
+
+        /// <summary>
+        /// How far the head rises (in unscaled body units; negative = drops) from resized body parts: legs push the
+        /// skeleton up by (Legs - 1) x leg length, and each torso segment on the way from hips to head stretches with
+        /// the size of the bone it starts from. Overall isn't included: it scales the whole body, eye point and all.
+        /// </summary>
+        public static float HeadLift(PartValues target, float restLegLength, IReadOnlyList<(float length, Part parentPart)> headPath)
+        {
+            float lift = (target[Part.Legs] - 1f) * restLegLength;
+            foreach ((float length, Part parentPart) in headPath)
+            {
+                lift += length * (target[parentPart] - 1f);
+            }
+            return lift;
+        }
 
         /// <summary>Reach and camera distance grow with a giant but don't shrink for a tiny player.</summary>
         public static float ReachFactor(float overall) => Math.Max(1f, overall);

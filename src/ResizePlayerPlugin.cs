@@ -26,7 +26,7 @@ namespace Oddhatter.ResizePlayer
 
         private static readonly Dictionary<Part, string> SizeDescriptions = new Dictionary<Part, string>
         {
-            [Part.Overall] = "Whole body, including hitbox, collision, reach, swim depth and camera distance.",
+            [Part.Overall] = "Whole body, including hitbox, collision, equipment, movement speed, reach, swim depth and camera.",
             [Part.Head] = "Head (with hair, beard and helmet).",
             [Part.Neck] = "Neck.",
             [Part.Chest] = "Chest and shoulders area.",
@@ -34,7 +34,7 @@ namespace Oddhatter.ResizePlayer
             [Part.Hips] = "Pelvis and butt.",
             [Part.Arms] = "Upper and lower arms.",
             [Part.Hands] = "Hands.",
-            [Part.Legs] = "Upper and lower legs. Your body is raised or lowered to keep your feet on the ground.",
+            [Part.Legs] = "Upper and lower legs. Your body is raised or lowered to keep your feet on the ground, and longer legs move you faster (speed = Overall x Legs).",
             [Part.Feet] = "Feet.",
         };
 
