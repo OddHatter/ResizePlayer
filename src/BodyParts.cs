@@ -70,6 +70,14 @@ namespace Oddhatter.ResizePlayer
         /// </summary>
         public static float JumpFactor(float stride) => (float)Math.Sqrt(stride * JumpHeight(stride));
 
+        /// <summary>
+        /// Foot IK distances in world metres (ankle height above the ground, raycast start above the foot, plant slip
+        /// distance), at a foot this many times vanilla size. The game's values are for a vanilla foot: on a tiny player
+        /// they hold the ankles too high and bend the knees into a crouch. (The IK's foot-down threshold is measured in
+        /// the body's own scaled space, so it needs no scaling.)
+        /// </summary>
+        public static float FootIkDistance(float original, float footScale) => original * footScale;
+
         /// <summary>Feather-cape fall-speed cap at this stride: a speed in m/s, so it scales like run speed.</summary>
         public static float MaxFallSpeed(float cap, float stride) => cap * stride;
 

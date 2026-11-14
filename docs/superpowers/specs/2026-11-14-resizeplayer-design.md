@@ -190,3 +190,8 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   gravity. The feather cape's fall-speed cap (applied every frame, even on the ground) is multiplied by stride for the
   local player through a ModifyWalkVelocity prefix; the field itself is untouched. Terrain is not scaled, so a giant
   sprinting over a sharp crest can still leave the ground briefly.
+- **Tiny crouch** ("when tiny, the character looks like they are crouched"). The game's foot IK
+  (CharacterAnimEvent.UpdateFootIK) plants each ankle a fixed 0.1 m above the ground and casts from 1 m above the foot;
+  on a quarter-size body that lifts the feet and bends the knees. Those world-metre distances (component and per-foot
+  m_footOffset, m_footStepHeight, m_stabalizeDistance) are multiplied by the foot bone's scale for every scaled player;
+  m_footDownMax is compared in the body's scaled local space and is left alone.

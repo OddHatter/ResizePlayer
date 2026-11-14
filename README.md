@@ -53,6 +53,8 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
 - **Gravity** scales with Overall x Legs too, so falls look normal for your size: a giant drops briskly instead of in
   slow motion, and a tiny player drifts down instead of plummeting (its normal-height jump hangs in the air longer).
   The **feather cape**'s fall-speed limit scales the same way, so a giant running downhill stays on the slope.
+- **Feet** are planted by the game's foot IK at a height that follows your foot size, so a tiny player stands up
+  straight instead of looking crouched.
 - **Ground and water**: a giant stands firmly on slopes and bumps, and wades through water slowed by the same share as a
   normal player in water as deep for its size (the game's water drag would otherwise stop a fast giant dead).
 - **Monsters** reach a giant's body: its hit capsule is giant too.

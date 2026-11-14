@@ -81,6 +81,11 @@ namespace ResizePlayer.Tests
             Assert.Equal(BodyParts.JumpHeight(stride), v * v / g, 4);
         }
 
+        // Foot IK plants the ankle a fixed 0.1 m above the ground; a quarter-size foot's ankle is 0.025 m up, so the vanilla
+        // value lifts the feet and bends the knees (the tiny player looks crouched).
+        [Fact] public void FootIkDistance_tiny_foot_plants_ankle_lower() => Assert.Equal(0.025f, BodyParts.FootIkDistance(0.1f, 0.25f), 5);
+        [Fact] public void FootIkDistance_giant_foot_plants_ankle_higher() => Assert.Equal(1f, BodyParts.FootIkDistance(0.1f, 10f), 5);
+
         // The feather cape caps falling speed in m/s; it is also applied on the ground, so it must follow stride like run speed.
         [Fact] public void MaxFallSpeed_giant_scales() => Assert.Equal(50f, BodyParts.MaxFallSpeed(5f, 10f), 4);
         [Fact] public void MaxFallSpeed_tiny_scales() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f), 4);

@@ -95,6 +95,12 @@ namespace Oddhatter.ResizePlayer
         private readonly List<(float vertical, float parentFactor)> _chain = new List<(float vertical, float parentFactor)>();
         private readonly List<(float current, float vanilla)> _soles = new List<(float current, float vanilla)>();
 
+        /// <summary>The game's foot IK and its vanilla distances (component-wide, then per foot), captured once.</summary>
+        private CharacterAnimEvent _animEvent;
+        private Vector3 _ikOriginal;
+        private Vector3[] _ikFootOriginals;
+        private float _ikFactor = 1f;
+
         /// <summary>The eye point (camera pivot, reach origin); raised or lowered with the head when body parts change height.</summary>
         private Transform _eye;
         private Vector3 _eyeOriginal;
@@ -307,6 +313,7 @@ namespace Oddhatter.ResizePlayer
             }
             CacheLegData(animator);
             CacheEye();
+            CacheFootIk(animator);
             return _bones.Count > 0;
         }
 
@@ -319,6 +326,61 @@ namespace Oddhatter.ResizePlayer
                 _eyeOriginal = _eye.localPosition;
                 _eyeMoved = false;
             }
+        }
+
+        /// <summary>Finds the game's foot IK and its vanilla distances, so Apply can scale them with the feet.</summary>
+        private void CacheFootIk(Animator animator)
+        {
+            if (_animEvent != null || _applied)
+            {
+                return;
+            }
+            _animEvent = animator.GetComponent<CharacterAnimEvent>();
+            if (_animEvent == null)
+            {
+                LogOnce("foot-ik", "No CharacterAnimEvent on the player's animator; a tiny player's feet may look lifted.");
+                return;
+            }
+            _ikOriginal = new Vector3(_animEvent.m_footOffset, _animEvent.m_footStepHeight, _animEvent.m_stabalizeDistance);
+            CharacterAnimEvent.Foot[] feet = _animEvent.m_feets;
+            _ikFootOriginals = new Vector3[feet.Length];
+            for (int i = 0; i < feet.Length; i++)
+            {
+                _ikFootOriginals[i] = new Vector3(feet[i].m_footOffset, feet[i].m_footStepHeight, feet[i].m_stabalizeDistance);
+            }
+            _ikFactor = 1f;
+            if (s_logged.Add("foot-ik-values"))
+            {
+                ResizePlayerPlugin.Log.LogInfo($"Foot IK: enabled={_animEvent.m_footIK}, per-foot values={_animEvent.m_useFeetValues}, " +
+                    $"ankle offset={_animEvent.m_footOffset:F3} m, step height={_animEvent.m_footStepHeight:F3} m, feet={feet.Length}");
+            }
+        }
+
+        /// <summary>
+        /// The game's foot IK plants each ankle a fixed 0.1 m above the ground (and casts from a fixed 1 m above the
+        /// foot). Scale those with the foot, or a tiny player's feet are held up and its knees bend into a crouch.
+        /// Foot IK runs on every client for every character, so this is applied to remote players too.
+        /// </summary>
+        private void ApplyFootIk(float factor)
+        {
+            if (_animEvent == null || Mathf.Abs(factor - _ikFactor) < 1e-4f)
+            {
+                return;
+            }
+            _ikFactor = factor;
+            SetFootIk(ref _animEvent.m_footOffset, ref _animEvent.m_footStepHeight, ref _animEvent.m_stabalizeDistance, _ikOriginal, factor);
+            CharacterAnimEvent.Foot[] feet = _animEvent.m_feets;
+            for (int i = 0; i < feet.Length && i < _ikFootOriginals.Length; i++)
+            {
+                SetFootIk(ref feet[i].m_footOffset, ref feet[i].m_footStepHeight, ref feet[i].m_stabalizeDistance, _ikFootOriginals[i], factor);
+            }
+        }
+
+        private static void SetFootIk(ref float offset, ref float stepHeight, ref float stabilize, Vector3 original, float factor)
+        {
+            offset = BodyParts.FootIkDistance(original.x, factor);
+            stepHeight = BodyParts.FootIkDistance(original.y, factor);
+            stabilize = BodyParts.FootIkDistance(original.z, factor);
         }
 
         private bool AllBonesAlive()
@@ -436,6 +498,8 @@ namespace Oddhatter.ResizePlayer
             {
                 transform.localScale = rootScale;
             }
+
+            ApplyFootIk(_feet[0] != null ? ScaleFactorAt(_feet[0]) : RootFactor);
 
             Vector3 up = transform.up;
             float groundOffset = 0f;
@@ -576,6 +640,7 @@ namespace Oddhatter.ResizePlayer
             {
                 _eye.localPosition = _eyeOriginal;
             }
+            ApplyFootIk(1f);
             _eyeMoved = false;
             _eyeLift = 0f;
             _applied = false;
