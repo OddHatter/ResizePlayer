@@ -17,6 +17,9 @@ namespace Oddhatter.ResizePlayer
         /// <summary>Movement speed multiplier of the local player in effect right now (1 when disabled).</summary>
         internal static float LocalStride = 1f;
 
+        /// <summary>Whether any of the local player's sizes differ from 1 right now (false when disabled).</summary>
+        internal static bool LocalResized;
+
         /// <summary>The local player's animation sync, whose speed inputs are divided by LocalStride (see Patches).</summary>
         internal static ZSyncAnimation LocalZAnim;
 
@@ -174,6 +177,7 @@ namespace Oddhatter.ResizePlayer
                 PartValues target = enabled ? LocalTarget() : null;
                 Apply(target);
                 LocalOverall = target != null ? target[Part.Overall] : 1f;
+                LocalResized = target != null && !target.ApproximatelyEquals(s_identity);
                 ApplyReach(LocalOverall);
                 LocalStride = target != null ? BodyParts.StrideFactor(target[Part.Overall], target[Part.Legs]) : 1f;
                 ApplySpeed(LocalStride);
@@ -290,6 +294,7 @@ namespace Oddhatter.ResizePlayer
             {
                 LocalOverall = 1f;
                 LocalStride = 1f;
+                LocalResized = false;
                 LocalZAnim = null;
             }
         }

@@ -101,6 +101,14 @@ namespace ResizePlayer.Tests
         [Fact] public void ProjectileSpawnOffset_tiny_spawns_below_its_head() => Assert.Equal(0.375f, BodyParts.ProjectileSpawnOffset(1.5f, 0.25f), 4);
         [Fact] public void ProjectileSpawnOffset_normal_size_is_vanilla() => Assert.Equal(1.5f, BodyParts.ProjectileSpawnOffset(1.5f, 1f), 4);
 
+        // The shot is re-aimed at what the crosshair hits. Distances are along the crosshair ray, beyond the spawn point.
+        [Fact] public void AimDistance_giant_aims_at_the_enemy_the_crosshair_is_on() => Assert.Equal(50f, BodyParts.AimDistance(50f, 5f), 4);
+        [Fact] public void AimDistance_tiny_aims_at_the_enemy_the_crosshair_is_on() => Assert.Equal(3f, BodyParts.AimDistance(3f, 0.125f), 4);
+        [Fact] public void AimDistance_sky_aims_far_away() => Assert.Equal(BodyParts.AimRange, BodyParts.AimDistance(float.PositiveInfinity, 5f), 4);
+
+        // A hit just past the spawn point (a branch beside a giant) must not fire the shot off sideways.
+        [Fact] public void AimDistance_close_hit_keeps_the_shot_near_the_look_direction() => Assert.Equal(10f, BodyParts.AimDistance(0.5f, 5f), 4);
+
         [Fact] public void LandingAltitude_giant_fall_counts_as_shorter() => Assert.Equal(101f, BodyParts.LandingAltitude(110f, 100f, 10f), 4);
 
         // Falls count in jump heights: a tiny player jumps the vanilla height, so it must land its own jump unhurt.

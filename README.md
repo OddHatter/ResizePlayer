@@ -58,8 +58,9 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
   slope; in the air it follows the square root of that factor, like a tiny player's gravity, so a giant still floats
   down gently and a tiny player isn't stuck drifting (half the normal cape speed at 0.25).
 - **Ranged attacks** (bows, crossbows, staffs, thrown spears) leave your body at the height and distance they would
-  on a normal-size character, scaled to your size, so shots line up with the crosshair instead of coming out of a
-  giant's shins.
+  on a normal-size character, scaled to your size, instead of coming out of a giant's shins. They fly to what the
+  crosshair is on: the game fires shots parallel to where you look, from beside the camera's line, which misses by
+  metres on a giant (or a character made taller by long legs). Arrow drop and spread are unchanged.
 - **Feet** are planted by the game's foot IK at a height that follows your foot size, so a tiny player stands up
   straight instead of looking crouched.
 - **Ground and water**: a giant stands firmly on slopes and bumps, and wades through water slowed by the same share as a

@@ -222,3 +222,11 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   offset (bow: 1.5 m up, 1 m ahead, 0.1 m right) and fires parallel to the look direction: a giant's shots left from its
   shins, far below the crosshair. The offset from the attack origin is multiplied by Overall for the local player (also
   lowers a tiny player's shots from above its head). Projectile size, speed and drop are unchanged.
+- **Giant projectile aim** ("projectiles when large are not hitting where the reticle is aimed"). Vanilla fires the shot
+  parallel to the look direction, and the crosshair ray runs parallel beside it through the over-the-shoulder camera
+  pivot (GameCamera: eye + m_eye.TransformVector(m_3rdOffset), which scales with the body). The sideways gap between the
+  two lines is the miss at every range: under a metre vanilla, Overall x that on a giant; an eye raised by long legs or a
+  long torso adds to it at Overall 1. For a resized local player (and not m_useCharacterFacing attacks) aimDir is
+  re-aimed from the spawn point at the nearest crosshair-ray hit beyond the spawn point (the player's own colliders
+  skipped; Projectile's layer mask), or 1000 m along the ray on no hit, at least 2x the sideways gap ahead (at most ~27
+  degrees off the look direction). Launch angle, spread and drop stay vanilla. At sizes all 1 nothing changes.

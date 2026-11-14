@@ -407,22 +407,63 @@ namespace Oddhatter.ResizePlayer
 
     /// <summary>
     /// Ranged attacks (bows, crossbows, staffs, thrown spears) spawn the projectile at the attack origin, the feet for every
-    /// player weapon, plus a fixed vanilla offset up, ahead and to the side, then fire it parallel to the look direction.
-    /// Scale that offset with Overall so the shot leaves the resized body where vanilla's leaves a vanilla body, and
-    /// lines up with the scaled camera's crosshair. Attacks run on the attacker's own machine, so only the local player.
+    /// player weapon, plus a fixed vanilla offset up, ahead and to the side. Scale that offset with Overall so the shot
+    /// leaves the resized body where vanilla's leaves a vanilla body.
+    /// The game then fires it parallel to the look direction, and the crosshair ray runs parallel beside it (through the
+    /// over-the-shoulder camera pivot). That sideways gap is under a metre on a vanilla body, but it grows with Overall
+    /// (and with an eye raised by long legs or a long torso), so a giant missed the crosshair by metres at every range.
+    /// Re-aim the shot at what the crosshair is on. Attacks that fire along the character's facing are left alone.
+    /// Attacks run on the attacker's own machine, so only the local player.
     /// </summary>
     [HarmonyPatch(typeof(Attack), nameof(Attack.GetProjectileSpawnPoint))]
     internal static class Attack_GetProjectileSpawnPoint_Patch
     {
-        private static void Postfix(Attack __instance, ref Vector3 spawnPoint)
+        private static int s_aimMask;
+
+        private static void Postfix(Attack __instance, ref Vector3 spawnPoint, ref Vector3 aimDir)
         {
-            if (PlayerScaler.LocalOverall == 1f || __instance.m_character != Player.m_localPlayer || Player.m_localPlayer == null)
+            Player player = Player.m_localPlayer;
+            if (!PlayerScaler.LocalResized || player == null || __instance.m_character != player)
             {
                 return;
             }
-            Vector3 origin = __instance.GetAttackOrigin().position;
-            Vector3 offset = spawnPoint - origin;
-            spawnPoint = origin + offset.normalized * BodyParts.ProjectileSpawnOffset(offset.magnitude, PlayerScaler.LocalOverall);
+            if (PlayerScaler.LocalOverall != 1f)
+            {
+                Vector3 origin = __instance.GetAttackOrigin().position;
+                Vector3 offset = spawnPoint - origin;
+                spawnPoint = origin + offset.normalized * BodyParts.ProjectileSpawnOffset(offset.magnitude, PlayerScaler.LocalOverall);
+            }
+            if (!__instance.m_useCharacterFacing && GameCamera.instance != null)
+            {
+                aimDir = AimAtCrosshair(player, GameCamera.instance.transform, spawnPoint);
+            }
+        }
+
+        private static Vector3 AimAtCrosshair(Player player, Transform camera, Vector3 spawnPoint)
+        {
+            if (s_aimMask == 0)
+            {
+                // The layers a projectile hits (Projectile's own mask is filled lazily, so it may not be set yet).
+                s_aimMask = LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "piece_nonsolid", "terrain",
+                    "character", "character_net", "character_ghost", "hitbox", "character_noenv", "vehicle");
+            }
+            Vector3 rayOrigin = camera.position;
+            Vector3 rayDir = camera.forward;
+            float spawnAlong = Mathf.Max(0f, Vector3.Dot(spawnPoint - rayOrigin, rayDir));
+            Vector3 beside = rayOrigin + rayDir * spawnAlong;
+            float sideOffset = Vector3.Distance(spawnPoint, beside);
+
+            // The camera is behind the player, so the ray can cross the player's own body: take the nearest hit beyond the spawn point.
+            float hit = float.PositiveInfinity;
+            foreach (RaycastHit h in Physics.RaycastAll(rayOrigin, rayDir, spawnAlong + BodyParts.AimRange, s_aimMask, QueryTriggerInteraction.Ignore))
+            {
+                if (h.distance > spawnAlong && h.distance - spawnAlong < hit && !h.collider.transform.IsChildOf(player.transform))
+                {
+                    hit = h.distance - spawnAlong;
+                }
+            }
+            Vector3 target = beside + rayDir * BodyParts.AimDistance(hit, sideOffset);
+            return (target - spawnPoint).normalized;
         }
     }
 

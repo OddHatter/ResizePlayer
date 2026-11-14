@@ -98,6 +98,20 @@ namespace Oddhatter.ResizePlayer
         /// </summary>
         public static float ProjectileSpawnOffset(float offset, float overall) => offset * overall;
 
+        /// <summary>How far along the crosshair ray (metres) a shot is aimed when nothing is under the crosshair.</summary>
+        public const float AimRange = 1000f;
+
+        /// <summary>
+        /// Distance along the crosshair ray, beyond the spawn point, at which to aim a projectile. The game fires it parallel
+        /// to the look direction from a spawn point beside the crosshair ray, so it misses by that sideways offset at every
+        /// range: well under a metre on a vanilla body, but the offset (shoulder camera, spawn height) scales with Overall,
+        /// metres on a giant. Aim it at what the crosshair hits instead (hitBeyondSpawn, infinity if nothing: then far away).
+        /// At least twice the sideways offset ahead, so a hit right beside the spawn point (a branch next to a giant)
+        /// doesn't fire the shot off sideways: at most ~27 degrees off the look direction.
+        /// </summary>
+        public static float AimDistance(float hitBeyondSpawn, float sideOffset)
+            => Math.Max(Math.Min(hitBeyondSpawn, AimRange), 2f * sideOffset);
+
         /// <summary>
         /// The highest point of a fall, rewritten so the game's fall damage (4 m to 20 m) counts the drop in jump
         /// heights: a stride-10 giant jumps 10x as high, so its 10 m drop counts as 1 m. A tiny player jumps the vanilla
