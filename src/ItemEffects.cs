@@ -228,11 +228,13 @@ namespace Oddhatter.ResizePlayer
         // and baked: the variant whose quads stay the same size per item size names the stretch term that scales wrong.
         private void AppendProbes(StringBuilder sb, ParticleSystem src)
         {
+            float k = _applied;
             Probe(sb, src, "as is", r => { });
             Probe(sb, src, "billboard", r => r.renderMode = ParticleSystemRenderMode.Billboard);
-            Probe(sb, src, "velocityScale 0", r => r.velocityScale = 0f);
-            Probe(sb, src, "lengthScale 0", r => r.lengthScale = 0f);
-            Probe(sb, src, "freeform off", r => r.freeformStretching = false);
+            Probe(sb, src, "length/s", r => r.lengthScale /= k);
+            Probe(sb, src, "length/s vel/s", r => { r.lengthScale /= k; r.velocityScale /= k; });
+            Probe(sb, src, "length/s^2", r => r.lengthScale /= k * k);
+            Probe(sb, src, "length/s^2 vel/s", r => { r.lengthScale /= k * k; r.velocityScale /= k; });
         }
 
         private void Probe(StringBuilder sb, ParticleSystem src, string name, System.Action<ParticleSystemRenderer> tweak)
