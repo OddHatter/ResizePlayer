@@ -201,3 +201,9 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
 - **Tiny gravity** ("tiny player fall too slow", after "the falling speed of tiny is too fast" with vanilla gravity).
   Gravity factor is stride above 1 and sqrt(stride) below (0.5 g at 0.25); jump speed is sqrt(gravity factor x jump
   height), so jump heights are unchanged.
+- **Weapon effects** ("weapons that have animated effects like frostfire or blood lightning, the emination animation does
+  not actually shrink properly"). Most item particle systems use Local scaling mode, which ignores parent scale. For
+  every attached item (AttachItem, including skinned ones, and AttachArmor) each Local-mode system's own scale is set to
+  original x ScaleFactorAt(joint) every frame, and transforms below it divide that back out (scale and position). No
+  particle module values are touched (ParticleIntensityScaler rewrites those); world-space velocity and force follow the
+  emitter's transform scale in Unity 2017.1+.

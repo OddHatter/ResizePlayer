@@ -10,7 +10,8 @@ or huge hands.
 - When you change **Legs**, **Hips** or **Feet**, your body is raised or lowered so your feet stay on the ground, in
   whatever pose you're in (standing, sneaking, sitting, lying in bed).
 - Weapons, shields, helmets, hair and anything else you carry grow and shrink with the body part holding them (so with
-  Overall, and with Hands or Head).
+  Overall, and with Hands or Head). Their particle effects (FrostFire flames, BloodLightning sparks, Berzerkr swirls,
+  torch fire) are sized with them.
 - You move faster or slower with your stride: speed follows your leg length (Overall x Legs), at the normal step rate.
   A bigger stride jumps that many times as high, and fall damage counts drops in those jump heights; a tiny player
   jumps as high as a normal one and takes normal fall damage. Gravity follows your size, so falls look natural.

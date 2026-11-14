@@ -188,6 +188,19 @@ namespace Oddhatter.ResizePlayer
             return (vanillaSpeed - vanillaSpeed * vanillaSpeed * immersion * drag) * stride;
         }
 
+        /// <summary>
+        /// Scale multiplier for a transform inside an equipped item whose size is itemSize x vanilla. Most item particle
+        /// effects (FrostFire flames, BloodLightning sparks) use Local scaling mode, which ignores parent scale, so they
+        /// stay vanilla size on a resized player: such a system gets its own scale times itemSize. Anything below
+        /// scaledAbove of those (consecutive, nearest first) inherits that extra scale and divides it back out. A
+        /// Local-mode system never sees its parents' scale, so it always takes plain itemSize.
+        /// </summary>
+        public static float EffectScale(float itemSize, int scaledAbove, bool localScaling)
+            => localScaling ? itemSize : EffectOffset(itemSize, scaledAbove);
+
+        /// <summary>Position multiplier for the same transform: cancels the extra scale of the scaled Local-mode systems above it.</summary>
+        public static float EffectOffset(float itemSize, int scaledAbove) => (float)Math.Pow(itemSize, -scaledAbove);
+
         /// <summary>The Player prefab's rest-pose ankle height (metres); 0 (stand on the ankle) if it isn't plausible.</summary>
         public static float RestSoleDepth(float ankleHeight) => ankleHeight > 0f && ankleHeight <= 0.5f ? ankleHeight : 0f;
     }

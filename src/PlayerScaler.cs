@@ -101,6 +101,9 @@ namespace Oddhatter.ResizePlayer
         private Vector3[] _ikFootOriginals;
         private float _ikFactor = 1f;
 
+        // Particle effects of equipped items, kept at the size of the joint they hang from (see ItemEffects).
+        private readonly List<ItemEffects> _effects = new List<ItemEffects>();
+
         /// <summary>The eye point (camera pivot, reach origin); raised or lowered with the head when body parts change height.</summary>
         private Transform _eye;
         private Vector3 _eyeOriginal;
@@ -188,6 +191,34 @@ namespace Oddhatter.ResizePlayer
                     RefreshRemote(_nview.GetZDO());
                 }
                 Apply(enabled ? _remote : null);
+            }
+            UpdateEffects();
+        }
+
+        /// <summary>Starts keeping an item's particle effects at its joint's size; called as the game attaches it.</summary>
+        internal void TrackEffects(Transform item, Transform joint)
+        {
+            ItemEffects effects = ItemEffects.Capture(item, joint);
+            if (effects != null)
+            {
+                effects.Apply(ScaleFactorAt(joint));
+                _effects.Add(effects);
+            }
+        }
+
+        /// <summary>Resizes tracked effects to their joints (back to vanilla once the body is), dropping unequipped items.</summary>
+        private void UpdateEffects()
+        {
+            for (int i = _effects.Count - 1; i >= 0; i--)
+            {
+                if (_effects[i].Destroyed)
+                {
+                    _effects.RemoveAt(i);
+                }
+                else
+                {
+                    _effects[i].Apply(ScaleFactorAt(_effects[i].Joint));
+                }
             }
         }
 

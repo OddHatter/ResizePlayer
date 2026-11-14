@@ -74,11 +74,17 @@ namespace Oddhatter.ResizePlayer
     {
         private static void Postfix(VisEquipment __instance, GameObject __result, Transform joint)
         {
-            if (__result != null && joint != null && __result.transform.parent == joint)
+            if (__result == null || joint == null)
+            {
+                return;
+            }
+            if (__result.transform.parent == joint)
             {
                 // Skinned items (armor, capes) are parented elsewhere and deform with the bones instead.
                 AttachedItemScaling.ScaleToJoint(__instance, __result.transform);
             }
+            // A skinned weapon (Berzerkr axes, FrostFire claws) is still held at the joint: its effects take that size.
+            AttachedItemScaling.TrackEffects(__instance, __result.transform, joint);
         }
     }
 
@@ -98,10 +104,15 @@ namespace Oddhatter.ResizePlayer
             Transform skinParent = __instance.m_bodyModel.transform.parent;
             foreach (GameObject item in __result)
             {
-                if (item != null && item.transform.parent != skinParent)
+                if (item == null)
+                {
+                    continue;
+                }
+                if (item.transform.parent != skinParent)
                 {
                     AttachedItemScaling.ScaleToJoint(__instance, item.transform);
                 }
+                AttachedItemScaling.TrackEffects(__instance, item.transform, item.transform.parent);
             }
         }
     }
@@ -120,6 +131,16 @@ namespace Oddhatter.ResizePlayer
             if (Mathf.Abs(factor - 1f) > 1e-4f)
             {
                 item.localScale *= factor;
+            }
+        }
+
+        /// <summary>Keeps the item's particle effects at the size of the joint it is held at (see ItemEffects).</summary>
+        internal static void TrackEffects(VisEquipment equipment, Transform item, Transform joint)
+        {
+            PlayerScaler scaler = equipment.GetComponentInParent<PlayerScaler>();
+            if (scaler != null && joint != null)
+            {
+                scaler.TrackEffects(item, joint);
             }
         }
     }

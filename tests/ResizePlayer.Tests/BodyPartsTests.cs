@@ -138,6 +138,15 @@ namespace ResizePlayer.Tests
 
         [Fact] public void PartValues_identity_isAllOne() { var v = PartValues.Identity(); Assert.All(BodyParts.All, p => Assert.Equal(1f, v[p])); }
 
+        // Particle effects on equipped items: a Local-scaling-mode system sizes itself by its own transform scale only.
+        [Fact] public void EffectScale_local_system_takes_the_item_size() => Assert.Equal(0.25f, BodyParts.EffectScale(0.25f, 0, true));
+        [Fact] public void EffectScale_local_system_ignores_scaled_local_parents() => Assert.Equal(4f, BodyParts.EffectScale(4f, 2, true));
+        [Fact] public void EffectScale_other_transform_unchanged_when_no_local_parent() => Assert.Equal(1f, BodyParts.EffectScale(4f, 0, false));
+        [Fact] public void EffectScale_child_of_scaled_local_system_cancels_it() => Assert.Equal(0.25f, BodyParts.EffectScale(4f, 1, false));
+        [Fact] public void EffectScale_child_under_two_scaled_local_systems_cancels_both() => Assert.Equal(1f / 16f, BodyParts.EffectScale(4f, 2, false), 6);
+        [Fact] public void EffectOffset_unchanged_when_no_local_parent() => Assert.Equal(1f, BodyParts.EffectOffset(4f, 0));
+        [Fact] public void EffectOffset_cancels_scaled_local_parents() => Assert.Equal(1f / 16f, BodyParts.EffectOffset(4f, 2), 6);
+
         [Fact]
         public void PartValues_approxEquals()
         {
