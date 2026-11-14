@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Optional, git-ignored: your own ValheimDir / ProfileDir (see README, Build). -->
+  <Import Project="ResizePlayer.local.props" Condition="Exists('ResizePlayer.local.props')" />
+
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>ResizePlayer</AssemblyName>
@@ -11,8 +14,10 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Keep the build machine's folder out of the shipped DLL's embedded debug info (stack traces show /_/src/...). -->
+    <PathMap>$(MSBuildProjectDirectory)=/_/,$(NuGetPackageRoot)=/_nuget/</PathMap>
 
-    <!-- Override on the command line: dotnet build -p:ValheimDir=... -p:ProfileDir=... -->
+    <!-- Defaults; override in ResizePlayer.local.props or on the command line (-p:ValheimDir=... -p:ProfileDir=...). -->
     <ValheimDir Condition="'$(ValheimDir)' == ''">/mnt/c/Program Files (x86)/Steam/steamapps/common/Valheim</ValheimDir>
     <ProfileDir Condition="'$(ProfileDir)' == ''">$(APPDATA)/r2modmanPlus-local/Valheim/profiles/Default</ProfileDir>
     <ManagedDir>$(ValheimDir)/valheim_Data/Managed</ManagedDir>

@@ -5,3 +5,4 @@ tasks/
 *.user
 .vs/
 .superpowers/
+ResizePlayer.local.props

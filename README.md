@@ -88,6 +88,8 @@ dotnet build -c Release -p:Deploy=true -p:Package=true
 ```
 
 Deploys to the r2modman profile (`BepInEx/plugins/Oddhatter-ResizePlayer`) and writes `dist/Oddhatter-ResizePlayer-<version>.zip`.
+Game and profile paths default to Steam's Valheim folder and r2modman's `Default` profile; set your own `ValheimDir` and
+`ProfileDir` in a `ResizePlayer.local.props` next to the project (git-ignored), or pass them with `-p:`.
 
 Unit tests for the size rules: `dotnet test tests/ResizePlayer.Tests`.
 
