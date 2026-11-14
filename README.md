@@ -50,6 +50,9 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
   too. **Fall damage** scales the same way: it starts at a drop of 4 m times that factor, so a giant can jump down from
   anything it can jump onto. Below 1 a tiny player keeps the normal jump height (small animals jump about as high as
   big ones) and normal fall damage, so it can still hop onto full-size steps and land its own jumps unhurt.
+- **Gravity** scales with Overall x Legs too, so falls look normal for your size: a giant drops briskly instead of in
+  slow motion, and a tiny player drifts down instead of plummeting (its normal-height jump hangs in the air longer).
+  The **feather cape**'s fall-speed limit scales the same way, so a giant running downhill stays on the slope.
 - **Ground and water**: a giant stands firmly on slopes and bumps, and wades through water slowed by the same share as a
   normal player in water as deep for its size (the game's water drag would otherwise stop a fast giant dead).
 - **Monsters** reach a giant's body: its hit capsule is giant too.

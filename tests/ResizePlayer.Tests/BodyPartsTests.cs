@@ -64,9 +64,26 @@ namespace ResizePlayer.Tests
         [Fact] public void ReachFactor_tiny_keeps_vanilla_reach() => Assert.Equal(1f, BodyParts.ReachFactor(0.25f));
         [Fact] public void ReachFactor_giant_grows() => Assert.Equal(3f, BodyParts.ReachFactor(3f));
 
-        [Fact] public void JumpFactor_giant_jumps_stride_times_as_high() { Assert.Equal(2f, BodyParts.JumpFactor(4f), 5); Assert.Equal(1f, BodyParts.JumpFactor(1f)); }
+        // Gravity follows stride, so falls look like vanilla at any size (a giant falls its own height in the vanilla time).
+        [Fact] public void ExtraGravity_giant_adds_gravity() => Assert.Equal(9f, BodyParts.ExtraGravity(10f), 5);
+        [Fact] public void ExtraGravity_tiny_removes_gravity() => Assert.Equal(-0.75f, BodyParts.ExtraGravity(0.25f), 5);
+        [Fact] public void ExtraGravity_normal_is_0() => Assert.Equal(0f, BodyParts.ExtraGravity(1f));
+
+        [Fact] public void JumpHeight_giant_jumps_stride_times_as_high() => Assert.Equal(4f, BodyParts.JumpHeight(4f), 5);
         // A tiny player still jumps the vanilla height (small animals jump about as high as big ones), so it can get onto full-size steps.
-        [Fact] public void JumpFactor_tiny_keeps_vanilla_jump() => Assert.Equal(1f, BodyParts.JumpFactor(0.25f));
+        [Fact] public void JumpHeight_tiny_keeps_vanilla_jump() => Assert.Equal(1f, BodyParts.JumpHeight(0.25f));
+
+        // Take-off speed for that height under that gravity: height = v^2 / 2g.
+        [Theory, InlineData(0.25f), InlineData(0.5f), InlineData(1f), InlineData(3f), InlineData(10f)]
+        public void JumpFactor_reaches_jump_height_under_scaled_gravity(float stride)
+        {
+            float v = BodyParts.JumpFactor(stride), g = 1f + BodyParts.ExtraGravity(stride);
+            Assert.Equal(BodyParts.JumpHeight(stride), v * v / g, 4);
+        }
+
+        // The feather cape caps falling speed in m/s; it is also applied on the ground, so it must follow stride like run speed.
+        [Fact] public void MaxFallSpeed_giant_scales() => Assert.Equal(50f, BodyParts.MaxFallSpeed(5f, 10f), 4);
+        [Fact] public void MaxFallSpeed_tiny_scales() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f), 4);
 
         [Fact] public void LandingAltitude_giant_fall_counts_as_shorter() => Assert.Equal(101f, BodyParts.LandingAltitude(110f, 100f, 10f), 4);
 

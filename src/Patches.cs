@@ -224,6 +224,31 @@ namespace Oddhatter.ResizePlayer
     /// further back, which would put the ground at its feet out of that ray's length; lengthen it with Overall.
     /// (Reach from the eye is still checked separately, so this only removes the camera's handicap.)
     /// </summary>
+    /// <summary>
+    /// The feather cape caps falling speed at a fixed m/s, applied every frame even on the ground. A giant running
+    /// downhill sinks faster than that, so the cap held it up off the slope ("flying"), and a tiny player's cap was
+    /// relatively huge. Scale the cap with stride for the local player, like every other speed. The field itself is left
+    /// alone (the grappling hook saves and restores it, and the tooltip shows it).
+    /// </summary>
+    [HarmonyPatch(typeof(SE_Stats), nameof(SE_Stats.ModifyWalkVelocity))]
+    internal static class SE_Stats_MaxFallSpeed_Patch
+    {
+        private static bool Prefix(SE_Stats __instance, ref Vector3 vel)
+        {
+            if (PlayerScaler.LocalStride == 1f || __instance.m_maxMaxFallSpeed <= 0f || __instance.m_character == null
+                || __instance.m_character != Player.m_localPlayer)
+            {
+                return true;
+            }
+            float cap = BodyParts.MaxFallSpeed(__instance.m_maxMaxFallSpeed, PlayerScaler.LocalStride);
+            if (vel.y < -cap)
+            {
+                vel.y = -cap;
+            }
+            return false;
+        }
+    }
+
     [HarmonyPatch]
     internal static class Player_CameraRay_Patch
     {

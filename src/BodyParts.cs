@@ -52,11 +52,26 @@ namespace Oddhatter.ResizePlayer
         public static float StrideFactor(float overall, float legs) => Clamp(overall * legs);
 
         /// <summary>
-        /// Jump speed multiplier: jump height goes with the square of take-off speed, so sqrt(stride) makes a giant's
-        /// jump stride times as high, clearing what it towers over. A tiny player keeps the vanilla jump (small animals
-        /// jump about as high as big ones; a quarter-height hop couldn't get onto full-size steps).
+        /// Extra gravity, in multiples of normal gravity: gravity follows stride, so a fall takes the vanilla time
+        /// measured in body heights (a stride-10 giant falls 10 m in the time a normal player falls 1 m; a tiny player
+        /// floats down). Without it a giant drops in slow motion and a tiny player plummets.
         /// </summary>
-        public static float JumpFactor(float stride) => (float)Math.Sqrt(Math.Max(1f, stride));
+        public static float ExtraGravity(float stride) => stride - 1f;
+
+        /// <summary>
+        /// Jump height multiplier: a giant jumps stride times as high, clearing what it towers over. A tiny player keeps
+        /// the vanilla height (small animals jump about as high as big ones; a quarter-height hop couldn't get onto
+        /// full-size steps).
+        /// </summary>
+        public static float JumpHeight(float stride) => Math.Max(1f, stride);
+
+        /// <summary>
+        /// Jump take-off speed multiplier that reaches JumpHeight under the scaled gravity (height = v^2 / 2g).
+        /// </summary>
+        public static float JumpFactor(float stride) => (float)Math.Sqrt(stride * JumpHeight(stride));
+
+        /// <summary>Feather-cape fall-speed cap at this stride: a speed in m/s, so it scales like run speed.</summary>
+        public static float MaxFallSpeed(float cap, float stride) => cap * stride;
 
         /// <summary>
         /// The highest point of a fall, rewritten so the game's fall damage (4 m to 20 m) counts the drop in jump
@@ -65,8 +80,7 @@ namespace Oddhatter.ResizePlayer
         /// </summary>
         public static float LandingAltitude(float maxAirAltitude, float y, float stride)
         {
-            float jumpHeight = JumpFactor(stride) * JumpFactor(stride);
-            return y + Math.Max(0f, maxAirAltitude - y) / jumpHeight;
+            return y + Math.Max(0f, maxAirAltitude - y) / JumpHeight(stride);
         }
 
         /// <summary>Vertical extent of a bone chain as it is now: the sum of its segments' verticals.</summary>

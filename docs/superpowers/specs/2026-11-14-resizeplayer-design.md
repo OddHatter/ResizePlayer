@@ -183,3 +183,10 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   which is zero at 20 m/s; for the scaled local player it is computed at vanilla speed and against the scaled body
   height, then scaled back. Jump force x sqrt(max(1, stride)): a tiny player keeps the vanilla jump (as with reach), and
   fall damage divides the drop by jump height (max(1, stride)), so a tiny player takes vanilla fall damage.
+- **Gravity and the feather cape** ("The falling speed when giant is way too slow and the falling speed of tiny is too
+  fast. When running on a hill with the feather cape, the character starts kind of flying"). The local player gets extra
+  gravity (stride - 1) x g while the game applies gravity to a free body (not swimming, attached, debug flying,
+  teleporting, dead or asleep). Jump speed becomes sqrt(stride x max(1, stride)) so heights stay as above under that
+  gravity. The feather cape's fall-speed cap (applied every frame, even on the ground) is multiplied by stride for the
+  local player through a ModifyWalkVelocity prefix; the field itself is untouched. Terrain is not scaled, so a giant
+  sprinting over a sharp crest can still leave the ground briefly.
