@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
@@ -20,6 +21,23 @@ namespace Oddhatter.ResizePlayer
 
         internal static ConfigEntry<bool> Enabled;
 
+        /// <summary>One size setting per Part (1 = vanilla). Read every frame, so edits apply live.</summary>
+        internal static readonly Dictionary<Part, ConfigEntry<float>> Sizes = new Dictionary<Part, ConfigEntry<float>>();
+
+        private static readonly Dictionary<Part, string> SizeDescriptions = new Dictionary<Part, string>
+        {
+            [Part.Overall] = "Whole body, including hitbox, collision, reach, swim depth and camera distance.",
+            [Part.Head] = "Head (with hair, beard and helmet).",
+            [Part.Neck] = "Neck.",
+            [Part.Chest] = "Chest and shoulders area.",
+            [Part.Belly] = "Belly and lower back.",
+            [Part.Hips] = "Pelvis and butt.",
+            [Part.Arms] = "Upper and lower arms.",
+            [Part.Hands] = "Hands.",
+            [Part.Legs] = "Upper and lower legs. Your body is raised or lowered to keep your feet on the ground.",
+            [Part.Feet] = "Feet.",
+        };
+
         /// <summary>Wait this long after the last file event before reloading (editors write in several steps).</summary>
         private const float ConfigReloadDelay = 0.5f;
 
@@ -36,6 +54,13 @@ namespace Oddhatter.ResizePlayer
             Enabled = Config.Bind("General", "Enabled", true,
                 "true: your character uses the sizes below, and you see other players' sizes (if they have the mod). " +
                 "false: everyone looks vanilla, and other players see you at normal size.");
+
+            foreach (Part part in BodyParts.All)
+            {
+                Sizes[part] = Config.Bind("Size", part.ToString(), 1f,
+                    new ConfigDescription(SizeDescriptions[part] + " 1 = normal size.",
+                        new AcceptableValueRange<float>(BodyParts.Min, BodyParts.Max)));
+            }
 
             _harmony = new Harmony(Guid);
             _harmony.PatchAll(typeof(ResizePlayerPlugin).Assembly);
