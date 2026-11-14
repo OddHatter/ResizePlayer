@@ -205,9 +205,16 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   not actually shrink properly"). Most item particle systems use Local scaling mode, which ignores parent scale. For
   every attached item (AttachItem, including skinned ones, and AttachArmor) each Local-mode system's own scale is set to
   original x ScaleFactorAt(joint) every frame, and transforms below it divide that back out (scale and position). No
-  particle module values are touched (ParticleIntensityScaler rewrites those). Unverified: whether world-space motion
-  (gravity, velocity, noise) and skinned-mesh emission points follow the system's own scale (a Unity bug fixed in 2017.1
-  suggests world velocity and force do); check FrostFire flame rise and Berzerkr particles on the blade in game.
+  particle module values are touched (ParticleIntensityScaler rewrites those). Measured on FrostFire flames (Local
+  scaling, World simulation): sizes and velocity-over-lifetime follow the system's own scale; drag and gravity do not
+  (giant flames rise about half as far as proportional, tiny ones about 3x), which looked fine in game and is left.
+- **Giant stretched flames** ("the frostfire crossbow particles on the z axis are too big when giant"). The flames render
+  as Stretch billboards, and Unity applies a Local-mode, world-simulated system's own scale to the stretch length twice,
+  so streaks were itemSize x too long on a giant (a wall of flame) and too short on a tiny player. Each such renderer's
+  lengthScale is set to original / itemSize (BodyParts.StretchLength). Found by baking the renderer
+  (ParticleSystemRenderer.BakeMesh) in the item's frame and comparing hidden clones with one renderer setting changed;
+  Hierarchy scaling mode (a first attempt) changed nothing. Local-simulated Stretch systems were not measured and are
+  left as they are.
 - **Tiny feather cape** ("shrunken falling with the cape is still too slow"). The in-air cap is now x sqrt(stride) for
   every size (half the vanilla cape speed at 0.25, was a quarter), matching tiny gravity; on the ground it stays x stride.
 - **Projectile spawn** ("projectiles do not work right when giant"). Every player ranged weapon (bows, crossbows, staffs,

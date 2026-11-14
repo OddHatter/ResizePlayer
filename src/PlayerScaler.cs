@@ -198,7 +198,7 @@ namespace Oddhatter.ResizePlayer
         /// <summary>Starts keeping an item's particle effects at its joint's size; called as the game attaches it.</summary>
         internal void TrackEffects(Transform item, Transform joint, string label)
         {
-            ItemEffects effects = ItemEffects.Capture(item, joint, label);
+            ItemEffects effects = ItemEffects.Capture(item, joint);
             if (effects != null)
             {
                 effects.Apply(ScaleFactorAt(joint));
@@ -223,7 +223,6 @@ namespace Oddhatter.ResizePlayer
                 else
                 {
                     _effects[i].Apply(ScaleFactorAt(_effects[i].Joint));
-                    _effects[i].ReportIfDue();
                 }
             }
         }
