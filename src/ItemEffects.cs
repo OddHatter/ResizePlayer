@@ -138,6 +138,10 @@ namespace Oddhatter.ResizePlayer
                           $" render={(pr != null ? pr.renderMode.ToString() : "-")} scaleX/orig={ratio:0.###} lossy={t.lossyScale.x:0.###}" +
                           $" particles={ps.particleCount} bounds={bounds:0.###} m ({(mesh > 0f ? bounds / mesh : 0f):0.###} x mesh)");
                 AppendGeometry(sb, pr);
+                if (main.simulationSpace == ParticleSystemSimulationSpace.World && pr != null && pr.renderMode == ParticleSystemRenderMode.Stretch)
+                {
+                    AppendProbes(sb, ps);
+                }
             }
             ResizePlayerPlugin.Log.LogInfo(sb.ToString());
         }
@@ -177,6 +181,60 @@ namespace Oddhatter.ResizePlayer
             }
             Vector3 ext = max - min;
             sb.Append($"\n      item-frame extent x={ext.x:0.###} y={ext.y:0.###} z={ext.z:0.###}, {quads} quads mean {longSum / quads:0.###} x {shortSum / quads:0.###}");
+        }
+
+        // Runs hidden copies of a world-space system for 0.6 s from rest, each with one module off, and logs particle
+        // speed, size and rise divided by the item size: proportional motion gives the same numbers at every size, so
+        // the copy that does is the one whose module scales wrong.
+        private void AppendProbes(StringBuilder sb, ParticleSystem src)
+        {
+            Probe(sb, src, "all", ps => { });
+            Probe(sb, src, "no noise", ps => { ParticleSystem.NoiseModule m = ps.noise; m.enabled = false; });
+            Probe(sb, src, "no clamp/drag", ps => { ParticleSystem.LimitVelocityOverLifetimeModule m = ps.limitVelocityOverLifetime; m.enabled = false; });
+            Probe(sb, src, "no velocity", ps => { ParticleSystem.VelocityOverLifetimeModule m = ps.velocityOverLifetime; m.enabled = false; });
+            Probe(sb, src, "no gravity", ps => { ParticleSystem.MainModule m = ps.main; m.gravityModifierMultiplier = 0f; });
+            Probe(sb, src, "only velocity", ps =>
+            {
+                ParticleSystem.NoiseModule n = ps.noise; n.enabled = false;
+                ParticleSystem.LimitVelocityOverLifetimeModule l = ps.limitVelocityOverLifetime; l.enabled = false;
+                ParticleSystem.MainModule m = ps.main; m.gravityModifierMultiplier = 0f;
+            });
+        }
+
+        private void Probe(StringBuilder sb, ParticleSystem src, string name, System.Action<ParticleSystem> tweak)
+        {
+            ParticleSystem ps = Object.Instantiate(src, src.transform.parent, false);
+            Transform t = ps.transform;
+            t.localPosition = src.transform.localPosition;
+            t.localRotation = src.transform.localRotation;
+            t.localScale = src.transform.localScale;
+            ParticleSystemRenderer r = ps.GetComponent<ParticleSystemRenderer>();
+            if (r != null)
+            {
+                r.enabled = false;
+            }
+            tweak(ps);
+            ps.Simulate(0.6f, false, true, true);
+            var parts = new ParticleSystem.Particle[ps.particleCount];
+            int count = ps.GetParticles(parts);
+            float size = _applied;
+            float vel = 0f, anim = 0f, total = 0f, psize = 0f, rise = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                vel += parts[i].velocity.magnitude;
+                anim += parts[i].animatedVelocity.magnitude;
+                total += parts[i].totalVelocity.magnitude;
+                psize += parts[i].GetCurrentSize(ps);
+                rise += parts[i].position.y - t.position.y;
+            }
+            Object.DestroyImmediate(ps.gameObject);
+            if (count == 0)
+            {
+                sb.Append($"\n      probe {name}: no particles");
+                return;
+            }
+            float k = 1f / (count * size);
+            sb.Append($"\n      probe {name}: n={count} |v|={vel * k:0.###} |anim|={anim * k:0.###} |total|={total * k:0.###} size={psize * k:0.###} rise={rise * k:0.###} (per item size)");
         }
 
         private string Path(Transform t)
