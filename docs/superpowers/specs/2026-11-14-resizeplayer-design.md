@@ -152,3 +152,15 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   normal legs; Enabled false → vanilla immediately; with a friend who has the mod, each sees the other's sizes live.
 - Overall 3: open a chest, use a workbench, sleep in a bed, place a floor piece on the ground. Wade into knee-deep
   water without swimming. Overall 0.25: start swimming in shallow water.
+
+## Additions requested during implementation (2026-11-14)
+
+- **Max size 10** (was 4) for every part; min stays 0.25. Network values clamp to 0.25–10.
+- **Equipment follows size.** Weapons, shields, helmets, hair, beards and back items scale with the body part they're
+  attached to (Overall × that part), no matter whether they were equipped before or after resizing.
+- **Speed follows stride.** "Longer legs mean longer strides": walk, jog, run, crouch and swim speed (and acceleration)
+  × Overall × Legs, clamped to 0.25–10. The locomotion animation is fed the vanilla speed so steps lengthen rather than
+  quicken. Jump height is unchanged.
+- **Camera keeps the character in view.** Zoom distance, min/max zoom and scroll speed × Overall (both ways, replacing
+  the earlier max(1, Overall) rule for the camera only); near clip × min(1, Overall). The eye point (camera pivot and
+  reach origin) follows head height when Legs or torso parts make the body taller or shorter.
