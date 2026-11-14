@@ -151,18 +151,33 @@ namespace Oddhatter.ResizePlayer
         // short edge of one particle.
         private void AppendGeometry(StringBuilder sb, ParticleSystemRenderer pr)
         {
+            string g = Geometry(pr);
+            if (g != null)
+            {
+                sb.Append("\n      bake: ").Append(g);
+            }
+            ParticleSystem ps = pr != null ? pr.GetComponent<ParticleSystem>() : null;
+            if (ps != null)
+            {
+                sb.Append("\n      particles: ").Append(Particles(ps));
+            }
+        }
+
+        // Baked quads in the item's frame (the item is scaled with the player, so proportional = same at every size).
+        private string Geometry(ParticleSystemRenderer pr)
+        {
             Camera cam = Camera.main;
             if (pr == null || cam == null || pr.renderMode == ParticleSystemRenderMode.None)
             {
-                return;
+                return null;
             }
             var baked = new Mesh();
             pr.BakeMesh(baked, cam, ParticleSystemBakeMeshOptions.Default);
             Vector3[] v = baked.vertices;
-            Object.Destroy(baked);
+            Object.DestroyImmediate(baked);
             if (v.Length < 4)
             {
-                return;
+                return $"{v.Length} vertices";
             }
             Vector3 min = Vector3.positiveInfinity, max = Vector3.negativeInfinity;
             for (int i = 0; i < v.Length; i++)
@@ -175,33 +190,52 @@ namespace Oddhatter.ResizePlayer
             int quads = v.Length / 4;
             for (int q = 0; q < quads; q++)
             {
-                float a = (v[q * 4 + 1] - v[q * 4]).magnitude, b = (v[q * 4 + 2] - v[q * 4 + 1]).magnitude;
-                longSum += Mathf.Max(a, b);
-                shortSum += Mathf.Min(a, b);
+                float e1 = (v[q * 4 + 1] - v[q * 4]).magnitude, e2 = (v[q * 4 + 2] - v[q * 4 + 1]).magnitude;
+                longSum += Mathf.Max(e1, e2);
+                shortSum += Mathf.Min(e1, e2);
             }
             Vector3 ext = max - min;
-            sb.Append($"\n      item-frame extent x={ext.x:0.###} y={ext.y:0.###} z={ext.z:0.###}, {quads} quads mean {longSum / quads:0.###} x {shortSum / quads:0.###}");
+            return $"extent {ext.x:0.###} x {ext.y:0.###} x {ext.z:0.###}, {quads} quads mean {longSum / quads:0.###} x {shortSum / quads:0.###}";
         }
 
-        // Runs hidden copies of a world-space system for 0.6 s from rest, each with one module off, and logs particle
-        // speed, size and rise divided by the item size: proportional motion gives the same numbers at every size, so
-        // the copy that does is the one whose module scales wrong.
+        // Particle centres and speeds, per item size: centre extent in the item's frame, speeds in world m/s / size.
+        private string Particles(ParticleSystem ps)
+        {
+            var parts = new ParticleSystem.Particle[ps.particleCount];
+            int count = ps.GetParticles(parts);
+            if (count == 0)
+            {
+                return "none";
+            }
+            bool world = ps.main.simulationSpace == ParticleSystemSimulationSpace.World;
+            Vector3 min = Vector3.positiveInfinity, max = Vector3.negativeInfinity;
+            float vel = 0f, total = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 w = world ? parts[i].position : ps.transform.TransformPoint(parts[i].position);
+                Vector3 c = _item.InverseTransformPoint(w);
+                min = Vector3.Min(min, c);
+                max = Vector3.Max(max, c);
+                vel += parts[i].velocity.magnitude;
+                total += parts[i].totalVelocity.magnitude;
+            }
+            Vector3 ext = max - min;
+            float k = 1f / (count * _applied);
+            return $"n={count} centres {ext.x:0.###} x {ext.y:0.###} x {ext.z:0.###} |v|={vel * k:0.###} |total|={total * k:0.###}";
+        }
+
+        // Hidden copies of a world-space Stretch system, same modules, different renderer settings, run 0.6 s from rest
+        // and baked: the variant whose quads stay the same size per item size names the stretch term that scales wrong.
         private void AppendProbes(StringBuilder sb, ParticleSystem src)
         {
-            Probe(sb, src, "all", ps => { });
-            Probe(sb, src, "no noise", ps => { ParticleSystem.NoiseModule m = ps.noise; m.enabled = false; });
-            Probe(sb, src, "no clamp/drag", ps => { ParticleSystem.LimitVelocityOverLifetimeModule m = ps.limitVelocityOverLifetime; m.enabled = false; });
-            Probe(sb, src, "no velocity", ps => { ParticleSystem.VelocityOverLifetimeModule m = ps.velocityOverLifetime; m.enabled = false; });
-            Probe(sb, src, "no gravity", ps => { ParticleSystem.MainModule m = ps.main; m.gravityModifierMultiplier = 0f; });
-            Probe(sb, src, "only velocity", ps =>
-            {
-                ParticleSystem.NoiseModule n = ps.noise; n.enabled = false;
-                ParticleSystem.LimitVelocityOverLifetimeModule l = ps.limitVelocityOverLifetime; l.enabled = false;
-                ParticleSystem.MainModule m = ps.main; m.gravityModifierMultiplier = 0f;
-            });
+            Probe(sb, src, "as is", r => { });
+            Probe(sb, src, "billboard", r => r.renderMode = ParticleSystemRenderMode.Billboard);
+            Probe(sb, src, "velocityScale 0", r => r.velocityScale = 0f);
+            Probe(sb, src, "lengthScale 0", r => r.lengthScale = 0f);
+            Probe(sb, src, "freeform off", r => r.freeformStretching = false);
         }
 
-        private void Probe(StringBuilder sb, ParticleSystem src, string name, System.Action<ParticleSystem> tweak)
+        private void Probe(StringBuilder sb, ParticleSystem src, string name, System.Action<ParticleSystemRenderer> tweak)
         {
             ParticleSystem ps = Object.Instantiate(src, src.transform.parent, false);
             Transform t = ps.transform;
@@ -209,32 +243,10 @@ namespace Oddhatter.ResizePlayer
             t.localRotation = src.transform.localRotation;
             t.localScale = src.transform.localScale;
             ParticleSystemRenderer r = ps.GetComponent<ParticleSystemRenderer>();
-            if (r != null)
-            {
-                r.enabled = false;
-            }
-            tweak(ps);
+            tweak(r);
             ps.Simulate(0.6f, false, true, true);
-            var parts = new ParticleSystem.Particle[ps.particleCount];
-            int count = ps.GetParticles(parts);
-            float size = _applied;
-            float vel = 0f, anim = 0f, total = 0f, psize = 0f, rise = 0f;
-            for (int i = 0; i < count; i++)
-            {
-                vel += parts[i].velocity.magnitude;
-                anim += parts[i].animatedVelocity.magnitude;
-                total += parts[i].totalVelocity.magnitude;
-                psize += parts[i].GetCurrentSize(ps);
-                rise += parts[i].position.y - t.position.y;
-            }
+            sb.Append($"\n      probe {name}: ").Append(Particles(ps)).Append(" | bake: ").Append(Geometry(r) ?? "none");
             Object.DestroyImmediate(ps.gameObject);
-            if (count == 0)
-            {
-                sb.Append($"\n      probe {name}: no particles");
-                return;
-            }
-            float k = 1f / (count * size);
-            sb.Append($"\n      probe {name}: n={count} |v|={vel * k:0.###} |anim|={anim * k:0.###} |total|={total * k:0.###} size={psize * k:0.###} rise={rise * k:0.###} (per item size)");
         }
 
         private string Path(Transform t)
