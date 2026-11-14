@@ -13,7 +13,7 @@ or huge hands.
   Overall, and with Hands or Head).
 - You move faster or slower with your stride: speed follows your leg length (Overall x Legs), at the normal step rate.
   A bigger stride jumps that many times as high, and fall damage counts drops in those jump heights; a tiny player
-  jumps and falls like a normal one.
+  jumps as high as a normal one and takes normal fall damage. Gravity follows your size, so falls look natural.
 - The camera follows your size, so you always see your character the same way.
 - Edits to the config file apply right away, while the game is running.
 - Multiplayer: friends who also have the mod see your sizes, and you see theirs.
