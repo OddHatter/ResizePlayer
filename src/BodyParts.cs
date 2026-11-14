@@ -52,11 +52,14 @@ namespace Oddhatter.ResizePlayer
         public static float StrideFactor(float overall, float legs) => Clamp(overall * legs);
 
         /// <summary>
-        /// Extra gravity, in multiples of normal gravity: gravity follows stride, so a fall takes the vanilla time
-        /// measured in body heights (a stride-10 giant falls 10 m in the time a normal player falls 1 m; a tiny player
-        /// floats down). Without it a giant drops in slow motion and a tiny player plummets.
+        /// Gravity multiplier. A giant gets stride x gravity, so a fall takes the vanilla time measured in body heights
+        /// (without it a giant drops in slow motion). A tiny player lives in a full-size world: full gravity looked like
+        /// plummeting and stride x gravity like floating, so it gets sqrt(stride) (half gravity at 0.25).
         /// </summary>
-        public static float ExtraGravity(float stride) => stride - 1f;
+        public static float GravityFactor(float stride) => stride >= 1f ? stride : (float)Math.Sqrt(stride);
+
+        /// <summary>Gravity to add on top of the game's, in multiples of normal gravity.</summary>
+        public static float ExtraGravity(float stride) => GravityFactor(stride) - 1f;
 
         /// <summary>
         /// Jump height multiplier: a giant jumps stride times as high, clearing what it towers over. A tiny player keeps
@@ -68,7 +71,7 @@ namespace Oddhatter.ResizePlayer
         /// <summary>
         /// Jump take-off speed multiplier that reaches JumpHeight under the scaled gravity (height = v^2 / 2g).
         /// </summary>
-        public static float JumpFactor(float stride) => (float)Math.Sqrt(stride * JumpHeight(stride));
+        public static float JumpFactor(float stride) => (float)Math.Sqrt(GravityFactor(stride) * JumpHeight(stride));
 
         /// <summary>
         /// Foot IK distances in world metres (ankle height above the ground, raycast start above the foot, plant slip

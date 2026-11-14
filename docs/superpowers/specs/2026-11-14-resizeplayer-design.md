@@ -198,3 +198,6 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
 - **Feather cape in the air** ("now when the feather cape is equipped when giant, the fall speed is too fast"). The cap
   stays x stride while IsOnGround() (slopes), and is x min(stride, sqrt(stride)) in the air: a stride-10 giant floats
   down at about 3x the vanilla cape speed instead of 10x, and a tiny player is unchanged.
+- **Tiny gravity** ("tiny player fall too slow", after "the falling speed of tiny is too fast" with vanilla gravity).
+  Gravity factor is stride above 1 and sqrt(stride) below (0.5 g at 0.25); jump speed is sqrt(gravity factor x jump
+  height), so jump heights are unchanged.

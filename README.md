@@ -51,7 +51,8 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
   anything it can jump onto. Below 1 a tiny player keeps the normal jump height (small animals jump about as high as
   big ones) and normal fall damage, so it can still hop onto full-size steps and land its own jumps unhurt.
 - **Gravity** scales with Overall x Legs too, so falls look normal for your size: a giant drops briskly instead of in
-  slow motion, and a tiny player drifts down instead of plummeting (its normal-height jump hangs in the air longer).
+  slow motion, and a tiny player falls a bit slower than normal instead of plummeting (half gravity at 0.25, so its
+  normal-height jump hangs in the air longer).
   The **feather cape**'s fall-speed limit scales the same way on the ground, so a giant running downhill stays on the
   slope; in the air a giant's limit grows only with the square root of that factor, so it still floats down gently.
 - **Feet** are planted by the game's foot IK at a height that follows your foot size, so a tiny player stands up

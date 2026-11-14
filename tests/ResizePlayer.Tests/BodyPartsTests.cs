@@ -66,7 +66,8 @@ namespace ResizePlayer.Tests
 
         // Gravity follows stride, so falls look like vanilla at any size (a giant falls its own height in the vanilla time).
         [Fact] public void ExtraGravity_giant_adds_gravity() => Assert.Equal(9f, BodyParts.ExtraGravity(10f), 5);
-        [Fact] public void ExtraGravity_tiny_removes_gravity() => Assert.Equal(-0.75f, BodyParts.ExtraGravity(0.25f), 5);
+        // A tiny player in full gravity plummeted, in quarter gravity it floated too slowly: it gets sqrt(stride), half at 0.25.
+        [Fact] public void ExtraGravity_tiny_removes_some_gravity() => Assert.Equal(-0.5f, BodyParts.ExtraGravity(0.25f), 5);
         [Fact] public void ExtraGravity_normal_is_0() => Assert.Equal(0f, BodyParts.ExtraGravity(1f));
 
         [Fact] public void JumpHeight_giant_jumps_stride_times_as_high() => Assert.Equal(4f, BodyParts.JumpHeight(4f), 5);

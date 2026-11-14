@@ -192,7 +192,7 @@ namespace Oddhatter.ResizePlayer
         }
 
         /// <summary>
-        /// Gravity follows stride (see BodyParts.ExtraGravity), added on top of the game's own gravity for the local
+        /// Gravity follows size (see BodyParts.GravityFactor), added on top of the game's own gravity for the local
         /// player only, and only while the game itself is applying gravity to a free body: not swimming (the swim code
         /// holds the body at the surface against normal gravity), attached, debug flying, teleporting, dead, or asleep
         /// (a sleeping body counts as on the ground).
@@ -561,7 +561,7 @@ namespace Oddhatter.ResizePlayer
         /// Longer legs take longer strides: every movement speed (and the acceleration that reaches it) is multiplied by
         /// the stride factor. The animation keeps its normal step rate because Patches divides its speed input by the
         /// same factor, so the bigger body's longer steps match the ground covered. Jump speed is set so that, under the
-        /// stride-scaled gravity (see FixedUpdate), jumps go stride times as high when stride is above 1 and vanilla height
+        /// scaled gravity (see FixedUpdate), jumps go stride times as high when stride is above 1 and vanilla height
         /// below (Patches rescales fall damage to match).
         /// </summary>
         private void ApplySpeed(float stride)
