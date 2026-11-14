@@ -137,8 +137,46 @@ namespace Oddhatter.ResizePlayer
                 sb.Append($"\n  {Path(t)}: scaling={main.scalingMode} sim={main.simulationSpace} shape={ps.shape.shapeType}" +
                           $" render={(pr != null ? pr.renderMode.ToString() : "-")} scaleX/orig={ratio:0.###} lossy={t.lossyScale.x:0.###}" +
                           $" particles={ps.particleCount} bounds={bounds:0.###} m ({(mesh > 0f ? bounds / mesh : 0f):0.###} x mesh)");
+                AppendGeometry(sb, pr);
             }
             ResizePlayerPlugin.Log.LogInfo(sb.ToString());
+        }
+
+        // The rendered particle quads, in the item's own frame (so divided by its size: proportional effects give the
+        // same numbers at every size). Extent = spread of all vertices along the item's x/y/z; quad = mean long and
+        // short edge of one particle.
+        private void AppendGeometry(StringBuilder sb, ParticleSystemRenderer pr)
+        {
+            Camera cam = Camera.main;
+            if (pr == null || cam == null || pr.renderMode == ParticleSystemRenderMode.None)
+            {
+                return;
+            }
+            var baked = new Mesh();
+            pr.BakeMesh(baked, cam, ParticleSystemBakeMeshOptions.Default);
+            Vector3[] v = baked.vertices;
+            Object.Destroy(baked);
+            if (v.Length < 4)
+            {
+                return;
+            }
+            Vector3 min = Vector3.positiveInfinity, max = Vector3.negativeInfinity;
+            for (int i = 0; i < v.Length; i++)
+            {
+                v[i] = _item.InverseTransformPoint(v[i]);
+                min = Vector3.Min(min, v[i]);
+                max = Vector3.Max(max, v[i]);
+            }
+            float longSum = 0f, shortSum = 0f;
+            int quads = v.Length / 4;
+            for (int q = 0; q < quads; q++)
+            {
+                float a = (v[q * 4 + 1] - v[q * 4]).magnitude, b = (v[q * 4 + 2] - v[q * 4 + 1]).magnitude;
+                longSum += Mathf.Max(a, b);
+                shortSum += Mathf.Min(a, b);
+            }
+            Vector3 ext = max - min;
+            sb.Append($"\n      item-frame extent x={ext.x:0.###} y={ext.y:0.###} z={ext.z:0.###}, {quads} quads mean {longSum / quads:0.###} x {shortSum / quads:0.###}");
         }
 
         private string Path(Transform t)
