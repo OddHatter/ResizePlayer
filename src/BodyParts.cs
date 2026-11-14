@@ -52,22 +52,75 @@ namespace Oddhatter.ResizePlayer
         public static float StrideFactor(float overall, float legs) => Clamp(overall * legs);
 
         /// <summary>
-        /// How far the head rises (in unscaled body units; negative = drops) from resized body parts: legs push the
-        /// skeleton up by (Legs - 1) x leg length, and each torso segment on the way from hips to head stretches with
-        /// the size of the bone it starts from. Overall isn't included: it scales the whole body, eye point and all.
+        /// Jump speed multiplier: jump height goes with the square of take-off speed, so sqrt(stride) makes a jump
+        /// stride times as high (and as long). A giant clears what it towers over; a tiny player hops.
         /// </summary>
-        public static float HeadLift(PartValues target, float restLegLength, IReadOnlyList<(float length, Part parentPart)> headPath)
+        public static float JumpFactor(float stride) => (float)Math.Sqrt(stride);
+
+        /// <summary>
+        /// The highest point of a fall, rewritten so the game's fall damage (4 m to 20 m) counts the drop in body
+        /// lengths: a stride-10 giant's 10 m drop counts as 1 m; a stride-0.25 tiny player's 1 m drop counts as 4 m.
+        /// </summary>
+        public static float LandingAltitude(float maxAirAltitude, float y, float stride) => y + Math.Max(0f, maxAirAltitude - y) / stride;
+
+        /// <summary>Vertical extent of a bone chain as it is now: the sum of its segments' verticals.</summary>
+        public static float CurrentVertical(IReadOnlyList<(float vertical, float parentFactor)> chain)
         {
-            float lift = (target[Part.Legs] - 1f) * restLegLength;
-            foreach ((float length, Part parentPart) in headPath)
+            float sum = 0f;
+            foreach ((float vertical, float _) in chain)
             {
-                lift += length * (target[parentPart] - 1f);
+                sum += vertical;
             }
-            return lift;
+            return sum;
         }
 
-        /// <summary>Reach and camera distance grow with a giant but don't shrink for a tiny player.</summary>
-        public static float ReachFactor(float overall) => Math.Max(1f, overall);
+        /// <summary>
+        /// Vertical extent of the same chain in this pose at vanilla proportions: each segment stretches with the size
+        /// this mod gives the bone it hangs from, so divide that back out. The pose (bone rotations) is the animation's.
+        /// </summary>
+        public static float VanillaVertical(IReadOnlyList<(float vertical, float parentFactor)> chain)
+        {
+            float sum = 0f;
+            foreach ((float vertical, float parentFactor) in chain)
+            {
+                sum += parentFactor > 0f ? vertical / parentFactor : vertical;
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// How far to raise the skeleton (negative = lower) so the lowest sole is where vanilla's lowest sole is in this
+        /// pose. Each entry is a sole's height relative to the hips, (now, vanilla). Pose-aware: standing on long legs
+        /// lifts by the extra leg length, lying in bed lifts by about nothing.
+        /// </summary>
+        public static float GroundOffset(IReadOnlyList<(float current, float vanilla)> soles)
+        {
+            if (soles.Count == 0)
+            {
+                return 0f;
+            }
+            float lowestNow = float.MaxValue, lowestVanilla = float.MaxValue;
+            foreach ((float current, float vanilla) in soles)
+            {
+                lowestNow = Math.Min(lowestNow, current);
+                lowestVanilla = Math.Min(lowestVanilla, vanilla);
+            }
+            return lowestVanilla - lowestNow;
+        }
+
+        /// <summary>
+        /// Reach and build-distance multiplier: follows size both ways (a giant reaches what it towers over, a tiny
+        /// player only what is near). While steering a ship a tiny player keeps vanilla reach, or the game would let go
+        /// of the helm (it checks helm distance against this reach).
+        /// </summary>
+        public static float ReachFactor(float overall, bool steering) => steering ? Math.Max(1f, overall) : overall;
+
+        /// <summary>
+        /// Reach in metres: the vanilla reach at this size, plus how far long legs or a long torso lifted the eye the
+        /// game measures reach from, so a tall character still reaches the ground. A lowered eye takes nothing off.
+        /// </summary>
+        public static float Reach(float original, float overall, float eyeLift, bool steering)
+            => original * ReachFactor(overall, steering) + Math.Max(0f, eyeLift);
     }
 
     /// <summary>One size per Part.</summary>

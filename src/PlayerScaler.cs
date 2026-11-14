@@ -44,6 +44,9 @@ namespace Oddhatter.ResizePlayer
             (HumanBodyBones.RightToes, Part.Feet),
         };
 
+        /// <summary>Animator flag the game sets while swimming (synced to other players).</summary>
+        private static readonly int s_inWater = ZSyncAnimation.GetHash("inWater");
+
         /// <summary>Messages already logged (missing bones etc.), so each is reported once per game session.</summary>
         private static readonly HashSet<string> s_logged = new HashSet<string>();
 
@@ -78,20 +81,26 @@ namespace Oddhatter.ResizePlayer
         private bool _rootOriginalKnown;
         private Vector3 _rootOriginal = Vector3.one;
 
-        /// <summary>Hip-to-ankle length in model units (unscaled); -1 until measured.</summary>
-        private float _restLegLength = -1f;
+        private Transform _hips;
+        private Transform _head;
         private Transform _armature;
         private Vector3 _armatureOriginal;
         private bool _armatureMoved;
 
-        /// <summary>Distance from each bone to its scaled ancestor bone, unscaled; measured once, survives a recache.</summary>
-        private readonly Dictionary<Transform, float> _restSegments = new Dictionary<Transform, float>();
-        /// <summary>Torso segments from the hips up to the head: rest length and the part that stretches it.</summary>
-        private readonly List<(float length, Part parentPart)> _headPath = new List<(float length, Part parentPart)>();
+        /// <summary>Left and right foot, and the ground point under each ankle in foot space, captured once while unscaled.</summary>
+        private readonly Transform[] _feet = new Transform[2];
+        private readonly Vector3[] _soleLocal = new Vector3[2];
+        private readonly bool[] _soleKnown = new bool[2];
+        /// <summary>Scratch lists for the per-frame pose measurement (no allocation per frame).</summary>
+        private readonly List<(float vertical, float parentFactor)> _chain = new List<(float vertical, float parentFactor)>();
+        private readonly List<(float current, float vanilla)> _soles = new List<(float current, float vanilla)>();
+
         /// <summary>The eye point (camera pivot, reach origin); raised or lowered with the head when body parts change height.</summary>
         private Transform _eye;
         private Vector3 _eyeOriginal;
         private bool _eyeMoved;
+        /// <summary>How far the eye is raised right now, in world metres (reach adds this).</summary>
+        private float _eyeLift;
 
         /// <summary>True while any scale of ours is on this player (so disabling restores once).</summary>
         private bool _applied;
@@ -108,6 +117,8 @@ namespace Oddhatter.ResizePlayer
         private float _crouchSpeedOriginal;
         private float _swimSpeedOriginal;
         private float _accelerationOriginal;
+        private float _jumpForceOriginal;
+        private float _jumpForwardOriginal;
 
         private void Awake()
         {
@@ -136,6 +147,8 @@ namespace Oddhatter.ResizePlayer
                 _crouchSpeedOriginal = _player.m_crouchSpeed;
                 _swimSpeedOriginal = _player.m_swimSpeed;
                 _accelerationOriginal = _player.m_acceleration;
+                _jumpForceOriginal = _player.m_jumpForce;
+                _jumpForwardOriginal = _player.m_jumpForceForward;
                 _reachOriginalsKnown = true;
             }
             if (!EnsureBones())
@@ -270,42 +283,18 @@ namespace Oddhatter.ResizePlayer
                 }
             }
             CacheLegData(animator);
-            CacheHeadPath(animator);
+            CacheEye();
             return _bones.Count > 0;
         }
 
-        /// <summary>
-        /// Measures (once, while unscaled) the torso segments between the hips and the head, and finds the eye point, so
-        /// Apply can keep the eye at head height when legs or torso parts change how tall the body is.
-        /// </summary>
-        private void CacheHeadPath(Animator animator)
+        /// <summary>Finds the eye point (camera pivot, reach origin) and its vanilla position, so Apply can move it with the head.</summary>
+        private void CacheEye()
         {
             if (_eye == null && _player.m_eye != null && !_applied)
             {
                 _eye = _player.m_eye;
                 _eyeOriginal = _eye.localPosition;
                 _eyeMoved = false;
-            }
-
-            float rootScale = transform.lossyScale.y;
-            var byTransform = new Dictionary<Transform, Bone>();
-            foreach (Bone bone in _bones)
-            {
-                byTransform[bone.T] = bone;
-                if (bone.ParentT != null && !_restSegments.ContainsKey(bone.T) && !_applied && rootScale > 0f)
-                {
-                    _restSegments[bone.T] = Vector3.Distance(bone.T.position, bone.ParentT.position) / rootScale;
-                }
-            }
-
-            _headPath.Clear();
-            Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
-            for (Transform t = head; t != null && byTransform.TryGetValue(t, out Bone b) && b.ParentT != null; t = b.ParentT)
-            {
-                if (_restSegments.TryGetValue(t, out float length))
-                {
-                    _headPath.Add((length, b.ParentPart.Value));
-                }
             }
         }
 
@@ -322,35 +311,36 @@ namespace Oddhatter.ResizePlayer
         }
 
         /// <summary>
-        /// Leg bones are scaled after animation and foot IK, so longer legs would push the feet into the ground and
-        /// shorter legs would leave them floating. Apply moves the skeleton (the hips' parent) up or down to match;
-        /// this measures the unscaled leg once and finds that parent.
+        /// Bones are scaled after animation, so bigger legs, hips or feet would push the feet into the ground and smaller
+        /// ones would leave them floating. Apply moves the skeleton (the hips' parent) to keep the lowest sole where
+        /// vanilla has it in the current pose; this finds the bones, that parent, and (once, unscaled) each sole point.
         /// </summary>
         private void CacheLegData(Animator animator)
         {
-            if (_restLegLength < 0f && !_applied)
+            _hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            _head = animator.GetBoneTransform(HumanBodyBones.Head);
+            _feet[0] = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
+            _feet[1] = animator.GetBoneTransform(HumanBodyBones.RightFoot);
+            for (int i = 0; i < _feet.Length; i++)
             {
-                Transform upper = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
-                Transform lower = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
-                Transform foot = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
-                float rootScale = transform.lossyScale.y;
-                if (upper != null && lower != null && foot != null && rootScale > 0f)
+                if (_feet[i] != null && !_soleKnown[i] && !_applied)
                 {
-                    _restLegLength = (Vector3.Distance(upper.position, lower.position) +
-                                      Vector3.Distance(lower.position, foot.position)) / rootScale;
-                }
-                else
-                {
-                    LogOnce("leg-length", "Couldn't measure the leg; feet may sink or float when Legs isn't 1.");
-                    _restLegLength = 0f;
+                    Vector3 up = transform.up;
+                    Vector3 ankle = _feet[i].position;
+                    Vector3 ground = ankle - up * Vector3.Dot(ankle - transform.position, up);
+                    _soleLocal[i] = _feet[i].InverseTransformPoint(ground);
+                    _soleKnown[i] = true;
                 }
             }
+            if (_hips == null || (!_soleKnown[0] && !_soleKnown[1]))
+            {
+                LogOnce("legs", "Couldn't find the hips or feet; feet may sink or float when Legs, Hips or Feet isn't 1.");
+            }
 
-            Transform hips = animator.GetBoneTransform(HumanBodyBones.Hips);
-            Transform armature = hips != null ? hips.parent : null;
+            Transform armature = _hips != null ? _hips.parent : null;
             if (armature == null || armature == animator.transform || armature.parent == null)
             {
-                LogOnce("armature", "No separate skeleton root above the hips; feet may sink or float when Legs isn't 1.");
+                LogOnce("armature", "No separate skeleton root above the hips; feet may sink or float when Legs, Hips or Feet isn't 1.");
                 armature = null;
             }
             if (armature != _armature)
@@ -397,44 +387,65 @@ namespace Oddhatter.ResizePlayer
                 transform.localScale = rootScale;
             }
 
-            float legDelta = target[Part.Legs] - 1f;
-            if (_armature != null && (legDelta != 0f || _armatureMoved))
+            Vector3 up = transform.up;
+            float groundOffset = 0f;
+            if (_armature != null)
             {
-                Vector3 worldOffset = transform.up * (legDelta * _restLegLength * transform.lossyScale.y);
-                _armature.localPosition = _armatureOriginal + _armature.parent.InverseTransformVector(worldOffset);
-                _armatureMoved = legDelta != 0f;
+                _soles.Clear();
+                // Swimming legs dangle in the water, not on the ground: leave the body at the water line. The flag is
+                // synced through the animator, so this holds for other players too.
+                bool swimming = _player.m_animator != null && _player.m_animator.GetBool(s_inWater);
+                for (int i = 0; i < _feet.Length && !swimming; i++)
+                {
+                    if (_feet[i] != null && _soleKnown[i] && CollectChain(_feet[i], _feet[i].TransformPoint(_soleLocal[i]), up))
+                    {
+                        _soles.Add((BodyParts.CurrentVertical(_chain), BodyParts.VanillaVertical(_chain)));
+                    }
+                }
+                groundOffset = BodyParts.GroundOffset(_soles);
+                if (Mathf.Abs(groundOffset) > 1e-4f || _armatureMoved)
+                {
+                    _armature.localPosition = _armatureOriginal + _armature.parent.InverseTransformVector(up * groundOffset);
+                    _armatureMoved = Mathf.Abs(groundOffset) > 1e-4f;
+                }
             }
 
             if (_eye != null)
             {
-                float lift = BodyParts.HeadLift(target, Mathf.Max(0f, _restLegLength), _headPath);
+                // The head moves with the skeleton, plus however much the torso and neck below it grew in this pose.
+                float lift = groundOffset;
+                if (_head != null && _head.parent != null && CollectChain(_head.parent, _head.position, up))
+                {
+                    lift += BodyParts.CurrentVertical(_chain) - BodyParts.VanillaVertical(_chain);
+                }
                 if (Mathf.Abs(lift) > 1e-4f || _eyeMoved)
                 {
-                    Vector3 worldLift = transform.up * (lift * transform.lossyScale.y);
-                    _eye.localPosition = _eyeOriginal + _eye.parent.InverseTransformVector(worldLift);
+                    _eye.localPosition = _eyeOriginal + _eye.parent.InverseTransformVector(up * lift);
                     _eyeMoved = Mathf.Abs(lift) > 1e-4f;
                 }
+                _eyeLift = lift;
             }
 
             _applied = true;
         }
 
         /// <summary>
-        /// Reach (interact, build) grows with a giant so it can still use things it towers over, but a tiny player keeps
-        /// vanilla reach. Swim depth follows size both ways: a giant wades, a tiny player swims in shallow water.
+        /// Reach (interact, build) follows size both ways, plus however far long legs or a long torso raised the eye it
+        /// is measured from. Swim depth follows size both ways: a giant wades, a tiny player swims in shallow water.
         /// </summary>
         private void ApplyReach(float overall)
         {
-            float reach = BodyParts.ReachFactor(overall);
-            _player.m_maxInteractDistance = _interactOriginal * reach;
-            _player.m_maxPlaceDistance = _placeOriginal * reach;
+            bool steering = _player.m_doodadController != null;
+            _player.m_maxInteractDistance = BodyParts.Reach(_interactOriginal, overall, _eyeLift, steering);
+            _player.m_maxPlaceDistance = BodyParts.Reach(_placeOriginal, overall, _eyeLift, steering);
             _player.m_swimDepth = _swimDepthOriginal * overall;
         }
 
         /// <summary>
         /// Longer legs take longer strides: every movement speed (and the acceleration that reaches it) is multiplied by
         /// the stride factor. The animation keeps its normal step rate because Patches divides its speed input by the
-        /// same factor, so the bigger body's longer steps match the ground covered.
+        /// same factor, so the bigger body's longer steps match the ground covered. Jumps go stride times as high and far
+        /// (Patches rescales fall damage to match).
         /// </summary>
         private void ApplySpeed(float stride)
         {
@@ -444,14 +455,22 @@ namespace Oddhatter.ResizePlayer
             _player.m_crouchSpeed = _crouchSpeedOriginal * stride;
             _player.m_swimSpeed = _swimSpeedOriginal * stride;
             _player.m_acceleration = _accelerationOriginal * stride;
+            float jump = BodyParts.JumpFactor(stride);
+            _player.m_jumpForce = _jumpForceOriginal * jump;
+            _player.m_jumpForceForward = _jumpForwardOriginal * jump;
         }
 
         /// <summary>
-        /// How much bigger than vanilla this mod currently makes the given transform: the product, from it up to the
-        /// player root, of each scaled transform's current scale over its original. Measured from the transforms
-        /// themselves, so it is right whenever it is called.
+        /// How much bigger than vanilla this mod currently makes the given transform: its body-part factor times the
+        /// Overall factor. Measured from the transforms themselves, so it is right whenever it is called.
         /// </summary>
-        internal float ScaleFactorAt(Transform t)
+        internal float ScaleFactorAt(Transform t) => PartFactorAt(t) * RootFactor;
+
+        /// <summary>This player's Overall size as currently applied (root scale over the prefab's).</summary>
+        internal float RootFactor => _rootOriginalKnown && _rootOriginal.x != 0f ? transform.localScale.x / _rootOriginal.x : 1f;
+
+        /// <summary>Product, from t up to (not including) the player root, of each scaled bone's current scale over its original.</summary>
+        private float PartFactorAt(Transform t)
         {
             float factor = 1f;
             for (Transform p = t; p != null && p != transform; p = p.parent)
@@ -461,11 +480,28 @@ namespace Oddhatter.ResizePlayer
                     factor *= p.localScale.x / original.x;
                 }
             }
-            if (_rootOriginalKnown && _rootOriginal.x != 0f)
-            {
-                factor *= transform.localScale.x / _rootOriginal.x;
-            }
             return factor;
+        }
+
+        /// <summary>
+        /// Fills _chain with the segments from tip up through from and its ancestors to the hips: each segment's vertical
+        /// (along up, world metres) and the body-part factor of the bone it hangs from. False if from isn't below the hips.
+        /// </summary>
+        private bool CollectChain(Transform from, Vector3 tip, Vector3 up)
+        {
+            _chain.Clear();
+            Vector3 child = tip;
+            for (Transform t = from; t != null && t != transform; t = t.parent)
+            {
+                _chain.Add((Vector3.Dot(child - t.position, up), PartFactorAt(t)));
+                if (t == _hips)
+                {
+                    return true;
+                }
+                child = t.position;
+            }
+            _chain.Clear();
+            return false;
         }
 
         private void Restore()
@@ -488,6 +524,7 @@ namespace Oddhatter.ResizePlayer
                 _eye.localPosition = _eyeOriginal;
             }
             _eyeMoved = false;
+            _eyeLift = 0f;
             _applied = false;
         }
 

@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
 
@@ -71,21 +74,135 @@ namespace Oddhatter.ResizePlayer
     {
         private static void Postfix(VisEquipment __instance, GameObject __result, Transform joint)
         {
-            if (__result == null || joint == null || __result.transform.parent != joint)
+            if (__result != null && joint != null && __result.transform.parent == joint)
             {
-                return; // skinned items (armor, capes) deform with the bones instead
+                // Skinned items (armor, capes) are parented elsewhere and deform with the bones instead.
+                AttachedItemScaling.ScaleToJoint(__instance, __result.transform);
             }
-            PlayerScaler scaler = __instance.GetComponentInParent<PlayerScaler>();
-            if (scaler == null)
+        }
+    }
+
+    /// <summary>
+    /// Rigid armour pieces (chest, shoulder, leg, utility and trinket items with attach_&lt;joint&gt; parts) are
+    /// instantiated on their joint keeping world size, like AttachItem. Same fix; skinned pieces are left alone.
+    /// </summary>
+    [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.AttachArmor))]
+    internal static class VisEquipment_AttachArmor_Patch
+    {
+        private static void Postfix(VisEquipment __instance, List<GameObject> __result)
+        {
+            if (__result == null || __instance.m_bodyModel == null)
             {
                 return;
             }
-            float factor = scaler.ScaleFactorAt(joint);
-            if (Mathf.Abs(factor - 1f) > 1e-4f)
+            Transform skinParent = __instance.m_bodyModel.transform.parent;
+            foreach (GameObject item in __result)
             {
-                __result.transform.localScale *= factor;
+                if (item != null && item.transform.parent != skinParent)
+                {
+                    AttachedItemScaling.ScaleToJoint(__instance, item.transform);
+                }
             }
         }
+    }
+
+    internal static class AttachedItemScaling
+    {
+        /// <summary>Multiplies an item just attached to a joint by the size this mod gives that joint.</summary>
+        internal static void ScaleToJoint(VisEquipment equipment, Transform item)
+        {
+            PlayerScaler scaler = equipment.GetComponentInParent<PlayerScaler>();
+            if (scaler == null || item.parent == null)
+            {
+                return;
+            }
+            float factor = scaler.ScaleFactorAt(item.parent);
+            if (Mathf.Abs(factor - 1f) > 1e-4f)
+            {
+                item.localScale *= factor;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Fall damage (from 4 m, lethal at 20 m) counts the drop in body lengths, matching jumps that go stride times as
+    /// high: a giant can jump off what it can jump onto, and a tiny player is hurt by a drop that is a cliff to it.
+    /// UpdateGroundContact runs on the landing frame, reads the highest point of the fall, then resets it.
+    /// </summary>
+    [HarmonyPatch(typeof(Character), nameof(Character.UpdateGroundContact))]
+    internal static class Character_UpdateGroundContact_Patch
+    {
+        private static void Prefix(Character __instance)
+        {
+            if (PlayerScaler.LocalStride != 1f && __instance.m_groundContact && __instance == Player.m_localPlayer)
+            {
+                __instance.m_maxAirAltitude = BodyParts.LandingAltitude(
+                    __instance.m_maxAirAltitude, __instance.transform.position.y, PlayerScaler.LocalStride);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The hover, interact, build and repair rays are cast 50 m from the camera. A giant's camera sits up to 10x
+    /// further back, which would put the ground at its feet out of that ray's length; lengthen it with Overall.
+    /// (Reach from the eye is still checked separately, so this only removes the camera's handicap.)
+    /// </summary>
+    [HarmonyPatch]
+    internal static class Player_CameraRay_Patch
+    {
+        private const float VanillaRayLength = 50f;
+        private static readonly MethodInfo s_rayLength = AccessTools.Method(typeof(Player_CameraRay_Patch), nameof(RayLength));
+
+        private static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Player), nameof(Player.FindHoverObject));
+            yield return AccessTools.Method(typeof(Player), nameof(Player.PieceRayTest));
+            yield return AccessTools.Method(typeof(Player), nameof(Player.RemovePiece));
+            yield return AccessTools.Method(typeof(Player), nameof(Player.CopyPiece));
+            yield return AccessTools.Method(typeof(Player), nameof(Player.UpdateWearNTearHover));
+        }
+
+        internal static float RayLength() => VanillaRayLength * Mathf.Max(1f, PlayerScaler.LocalOverall);
+
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase __originalMethod)
+        {
+            int replaced = 0;
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.opcode == OpCodes.Ldc_R4 && instruction.operand is float value && value == VanillaRayLength)
+                {
+                    instruction.opcode = OpCodes.Call; // keeps the instruction's labels
+                    instruction.operand = s_rayLength;
+                    replaced++;
+                }
+                yield return instruction;
+            }
+            if (replaced != 1)
+            {
+                ResizePlayerPlugin.Log.LogWarning(
+                    $"Expected one 50 m camera ray in Player.{__originalMethod.Name}, found {replaced}; giants may not reach far from the camera.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The game ignores a player's scale in GetRadius and GetHeight (players are never scaled in vanilla). Monsters
+    /// start an attack when within range of the target's radius, and hits are placed on its capsule, so a giant's
+    /// would be unreachable: give them the scaled capsule.
+    /// </summary>
+    [HarmonyPatch(typeof(Character))]
+    internal static class Character_Size_Patch
+    {
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(Character.GetRadius))]
+        private static void Radius(Character __instance, ref float __result) => __result *= OverallOf(__instance);
+
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(Character.GetHeight))]
+        private static void Height(Character __instance, ref float __result) => __result *= OverallOf(__instance);
+
+        private static float OverallOf(Character character)
+            => character is Player && character.TryGetComponent(out PlayerScaler scaler) ? scaler.RootFactor : 1f;
     }
 
     /// <summary>
