@@ -54,6 +54,17 @@ namespace Oddhatter.ResizePlayer
         private readonly Dictionary<Transform, Vector3> _originals = new Dictionary<Transform, Vector3>();
         private readonly PartValues _localTarget = PartValues.Identity();
 
+        /// <summary>What a player with the mod disabled publishes: normal size.</summary>
+        private static readonly PartValues s_identity = PartValues.Identity();
+        /// <summary>ZDO key hash per Part (indexed by (int)Part), so per-frame reads don't rebuild strings.</summary>
+        private static readonly int[] s_zdoHashes = System.Array.ConvertAll(BodyParts.All, p => BodyParts.ZdoKey(p).GetStableHashCode());
+        /// <summary>Sizes last written to our ZDO; null until the first write, so the first frame always publishes.</summary>
+        private PartValues _lastPublished;
+        /// <summary>Another player's sizes as last read from their ZDO.</summary>
+        private readonly PartValues _remote = PartValues.Identity();
+        private bool _haveRemote;
+        private uint _lastRevision;
+
         private Player _player;
         private ZNetView _nview;
         private Animator _cachedAnimator;
@@ -104,15 +115,64 @@ namespace Oddhatter.ResizePlayer
                 return;
             }
 
+            bool enabled = ResizePlayerPlugin.Enabled.Value;
             if (_player == Player.m_localPlayer)
             {
                 _wasLocal = true;
-                PartValues target = ResizePlayerPlugin.Enabled.Value ? LocalTarget() : null;
+                PartValues target = enabled ? LocalTarget() : null;
                 Apply(target);
                 LocalOverall = target != null ? target[Part.Overall] : 1f;
                 ApplyReach(LocalOverall);
                 LogSyncFlagsOnce();
+                if (_nview.IsOwner())
+                {
+                    Publish(_nview.GetZDO(), target ?? s_identity);
+                }
             }
+            else
+            {
+                if (enabled)
+                {
+                    RefreshRemote(_nview.GetZDO());
+                }
+                Apply(enabled ? _remote : null);
+            }
+        }
+
+        /// <summary>Writes the sizes other players should see to our ZDO, only the parts that changed.</summary>
+        private void Publish(ZDO zdo, PartValues values)
+        {
+            if (values.ApproximatelyEquals(_lastPublished))
+            {
+                return;
+            }
+            foreach (Part part in BodyParts.All)
+            {
+                if (_lastPublished == null || Mathf.Abs(_lastPublished[part] - values[part]) > 1e-4f)
+                {
+                    zdo.Set(s_zdoHashes[(int)part], values[part]);
+                }
+            }
+            if (_lastPublished == null)
+            {
+                _lastPublished = PartValues.Identity();
+            }
+            _lastPublished.CopyFrom(values);
+        }
+
+        /// <summary>Reads another player's sizes from their ZDO when it has changed (or never been read). Missing keys = 1.</summary>
+        private void RefreshRemote(ZDO zdo)
+        {
+            if (_haveRemote && zdo.DataRevision == _lastRevision)
+            {
+                return;
+            }
+            foreach (Part part in BodyParts.All)
+            {
+                _remote[part] = BodyParts.Clamp(zdo.GetFloat(s_zdoHashes[(int)part], 1f));
+            }
+            _lastRevision = zdo.DataRevision;
+            _haveRemote = true;
         }
 
         private void OnDestroy()
