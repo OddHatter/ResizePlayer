@@ -73,8 +73,8 @@ The user chose 1, with the requirement that edits apply live.
 | Key | Default | Range | Meaning |
 |---|---|---|---|
 | General.Enabled | true | | false = everyone you see (you included) is vanilla size. |
-| Overall | 1.0 | 0.25–4.0 | Whole player: model, collision, hitbox, camera height. |
-| Head, Neck, Chest, Belly, Hips, Arms, Hands, Legs, Feet | 1.0 | 0.25–4.0 | That part only. |
+| Overall | 1.0 | 0.25–10.0 | Whole player: model, collision, hitbox, camera height. |
+| Head, Neck, Chest, Belly, Hips, Arms, Hands, Legs, Feet | 1.0 | 0.25–10.0 | That part only. |
 
 Use `AcceptableValueRange<float>` so r2modman shows sliders. Values are relative to vanilla (1 = normal).
 
@@ -114,7 +114,7 @@ whole limb is the chosen size.
   (or removes the keys), so friends see you at normal size.
 - Remote players' components read those keys from that player's ZDO, checking `ZDO.DataRevision` so they only re-read
   when it changes, and apply them the same way. Missing keys = 1.
-- Values read from the network are clamped to the same 0.25–4 range.
+- Values read from the network are clamped to the same 0.25–10 range.
 
 ### Camera
 

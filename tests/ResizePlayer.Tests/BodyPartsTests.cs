@@ -11,7 +11,9 @@ namespace ResizePlayer.Tests
 
         [Fact] public void Clamp_low() { Assert.Equal(0.25f, BodyParts.Clamp(0f)); Assert.Equal(0.25f, BodyParts.Clamp(-1f)); }
 
-        [Fact] public void Clamp_high() => Assert.Equal(4f, BodyParts.Clamp(100f));
+        [Fact] public void Clamp_max_is_10() => Assert.Equal(10f, BodyParts.Max);
+        [Fact] public void Clamp_keeps_values_up_to_10() => Assert.Equal(7.5f, BodyParts.Clamp(7.5f));
+        [Fact] public void Clamp_high() => Assert.Equal(10f, BodyParts.Clamp(100f));
 
         [Fact] public void Clamp_nonFinite_isOne() { Assert.Equal(1f, BodyParts.Clamp(float.NaN)); Assert.Equal(1f, BodyParts.Clamp(float.PositiveInfinity)); }
 
@@ -19,7 +21,7 @@ namespace ResizePlayer.Tests
 
         [Fact] public void LocalFactor_ratio() { Assert.Equal(2f, BodyParts.LocalFactor(2f, 1f)); Assert.Equal(0.5f, BodyParts.LocalFactor(1f, 2f)); }
 
-        [Fact] public void LocalFactor_extremes() { Assert.Equal(16f, BodyParts.LocalFactor(4f, 0.25f)); Assert.Equal(1f / 16f, BodyParts.LocalFactor(0.25f, 4f), 5); }
+        [Fact] public void LocalFactor_extremes() { Assert.Equal(40f, BodyParts.LocalFactor(10f, 0.25f)); Assert.Equal(1f / 40f, BodyParts.LocalFactor(0.25f, 10f), 5); }
 
         [Fact] public void ReachFactor_neverBelowOne() { Assert.Equal(1f, BodyParts.ReachFactor(0.25f)); Assert.Equal(3f, BodyParts.ReachFactor(3f)); }
 

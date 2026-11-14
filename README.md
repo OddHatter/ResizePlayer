@@ -13,7 +13,7 @@ or huge hands.
 
 ## Config (`BepInEx/config/com.oddhatter.resizeplayer.cfg`)
 
-Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allows 0.25 to 4.
+Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allows 0.25 to 10.
 
 | Setting | Default | Meaning |
 |---|---|---|

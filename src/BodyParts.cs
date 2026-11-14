@@ -21,7 +21,7 @@ namespace Oddhatter.ResizePlayer
     internal static class BodyParts
     {
         public const float Min = 0.25f;
-        public const float Max = 4f;
+        public const float Max = 10f;
 
         public static readonly Part[] All = (Part[])Enum.GetValues(typeof(Part));
 
