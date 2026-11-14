@@ -72,7 +72,7 @@ namespace Oddhatter.ResizePlayer
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.AttachItem))]
     internal static class VisEquipment_AttachItem_Patch
     {
-        private static void Postfix(VisEquipment __instance, GameObject __result, Transform joint)
+        private static void Postfix(VisEquipment __instance, GameObject __result, int itemHash, Transform joint)
         {
             if (__result == null || joint == null)
             {
@@ -84,7 +84,7 @@ namespace Oddhatter.ResizePlayer
                 AttachedItemScaling.ScaleToJoint(__instance, __result.transform);
             }
             // A skinned weapon (Berzerkr axes, FrostFire claws) is still held at the joint: its effects take that size.
-            AttachedItemScaling.TrackEffects(__instance, __result.transform, joint);
+            AttachedItemScaling.TrackEffects(__instance, __result.transform, joint, itemHash);
         }
     }
 
@@ -95,7 +95,7 @@ namespace Oddhatter.ResizePlayer
     [HarmonyPatch(typeof(VisEquipment), nameof(VisEquipment.AttachArmor))]
     internal static class VisEquipment_AttachArmor_Patch
     {
-        private static void Postfix(VisEquipment __instance, List<GameObject> __result)
+        private static void Postfix(VisEquipment __instance, List<GameObject> __result, int itemHash)
         {
             if (__result == null || __instance.m_bodyModel == null)
             {
@@ -112,7 +112,7 @@ namespace Oddhatter.ResizePlayer
                 {
                     AttachedItemScaling.ScaleToJoint(__instance, item.transform);
                 }
-                AttachedItemScaling.TrackEffects(__instance, item.transform, item.transform.parent);
+                AttachedItemScaling.TrackEffects(__instance, item.transform, item.transform.parent, itemHash);
             }
         }
     }
@@ -135,12 +135,13 @@ namespace Oddhatter.ResizePlayer
         }
 
         /// <summary>Keeps the item's particle effects at the size of the joint it is held at (see ItemEffects).</summary>
-        internal static void TrackEffects(VisEquipment equipment, Transform item, Transform joint)
+        internal static void TrackEffects(VisEquipment equipment, Transform item, Transform joint, int itemHash)
         {
             PlayerScaler scaler = equipment.GetComponentInParent<PlayerScaler>();
             if (scaler != null && joint != null)
             {
-                scaler.TrackEffects(item, joint);
+                GameObject prefab = ObjectDB.instance != null ? ObjectDB.instance.GetItemPrefab(itemHash) : null;
+                scaler.TrackEffects(item, joint, prefab != null ? prefab.name : item.name);
             }
         }
     }

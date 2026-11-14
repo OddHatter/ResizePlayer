@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 namespace Oddhatter.ResizePlayer
@@ -33,13 +34,16 @@ namespace Oddhatter.ResizePlayer
         private readonly Transform _item;
         private readonly Transform _joint;
         private readonly List<Node> _nodes;
+        private readonly string _label;
         private float _applied = 1f;
+        private float _reportAt = -1f;
 
-        private ItemEffects(Transform item, Transform joint, List<Node> nodes)
+        private ItemEffects(Transform item, Transform joint, List<Node> nodes, string label)
         {
             _item = item;
             _joint = joint;
             _nodes = nodes;
+            _label = label;
         }
 
         /// <summary>How many transforms this resizes (for the log).</summary>
@@ -52,14 +56,14 @@ namespace Oddhatter.ResizePlayer
         public Transform Joint => _joint;
 
         /// <summary>The effects under an item just attached, or null when it has no Local-mode particle system.</summary>
-        public static ItemEffects Capture(Transform item, Transform joint)
+        public static ItemEffects Capture(Transform item, Transform joint, string label)
         {
             var nodes = new List<Node>();
             for (int i = 0; i < item.childCount; i++)
             {
                 Collect(item.GetChild(i), 0, nodes);
             }
-            return nodes.Count > 0 ? new ItemEffects(item, joint, nodes) : null;
+            return nodes.Count > 0 ? new ItemEffects(item, joint, nodes, label) : null;
         }
 
         private static void Collect(Transform t, int scaledAbove, List<Node> nodes)
@@ -93,6 +97,58 @@ namespace Oddhatter.ResizePlayer
                 }
             }
             _applied = itemSize;
+            _reportAt = Time.time + 2f;
+        }
+
+        // DIAGNOSTIC (temporary): giant particle effects looked too big. Logs, 2 s after each size change, every particle
+        // system under the item with its world bounds next to the item's mesh bounds, so the ratio can be compared
+        // across sizes.
+        public void ReportIfDue()
+        {
+            if (_reportAt < 0f || Time.time < _reportAt || _item == null)
+            {
+                return;
+            }
+            _reportAt = -1f;
+            float mesh = 0f;
+            foreach (Renderer r in _item.GetComponentsInChildren<Renderer>())
+            {
+                if (r is MeshRenderer || r is SkinnedMeshRenderer)
+                {
+                    mesh = Mathf.Max(mesh, r.bounds.size.magnitude);
+                }
+            }
+            var sb = new StringBuilder();
+            sb.Append($"[diag] Item effects {_label}: size {_applied:0.###}, mesh bounds {mesh:0.###} m");
+            foreach (ParticleSystem ps in _item.GetComponentsInChildren<ParticleSystem>())
+            {
+                Transform t = ps.transform;
+                float ratio = 0f;
+                foreach (Node n in _nodes)
+                {
+                    if (n.T == t && n.Scale.x != 0f)
+                    {
+                        ratio = t.localScale.x / n.Scale.x;
+                    }
+                }
+                ParticleSystem.MainModule main = ps.main;
+                ParticleSystemRenderer pr = ps.GetComponent<ParticleSystemRenderer>();
+                float bounds = pr != null ? pr.bounds.size.magnitude : 0f;
+                sb.Append($"\n  {Path(t)}: scaling={main.scalingMode} sim={main.simulationSpace} shape={ps.shape.shapeType}" +
+                          $" render={(pr != null ? pr.renderMode.ToString() : "-")} scaleX/orig={ratio:0.###} lossy={t.lossyScale.x:0.###}" +
+                          $" particles={ps.particleCount} bounds={bounds:0.###} m ({(mesh > 0f ? bounds / mesh : 0f):0.###} x mesh)");
+            }
+            ResizePlayerPlugin.Log.LogInfo(sb.ToString());
+        }
+
+        private string Path(Transform t)
+        {
+            string path = t.name;
+            for (Transform p = t.parent; p != null && p != _item; p = p.parent)
+            {
+                path = p.name + "/" + path;
+            }
+            return path;
         }
     }
 }

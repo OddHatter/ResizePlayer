@@ -196,17 +196,17 @@ namespace Oddhatter.ResizePlayer
         }
 
         /// <summary>Starts keeping an item's particle effects at its joint's size; called as the game attaches it.</summary>
-        internal void TrackEffects(Transform item, Transform joint)
+        internal void TrackEffects(Transform item, Transform joint, string label)
         {
-            ItemEffects effects = ItemEffects.Capture(item, joint);
+            ItemEffects effects = ItemEffects.Capture(item, joint, label);
             if (effects != null)
             {
                 effects.Apply(ScaleFactorAt(joint));
                 _effects.Add(effects);
-                if (s_logged.Add("effects:" + item.name))
+                if (s_logged.Add("effects:" + label))
                 {
                     ResizePlayerPlugin.Log.LogInfo(
-                        $"Item effects: {item.name} on {joint.name}, size {ScaleFactorAt(joint):0.###}, {effects.Count} transforms");
+                        $"Item effects: {label} on {joint.name}, size {ScaleFactorAt(joint):0.###}, {effects.Count} transforms");
                 }
             }
         }
@@ -223,6 +223,7 @@ namespace Oddhatter.ResizePlayer
                 else
                 {
                     _effects[i].Apply(ScaleFactorAt(_effects[i].Joint));
+                    _effects[i].ReportIfDue();
                 }
             }
         }
