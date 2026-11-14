@@ -208,3 +208,10 @@ The builder logs that flag once on spawn and notes the result in tasks/todo.md. 
   particle module values are touched (ParticleIntensityScaler rewrites those). Unverified: whether world-space motion
   (gravity, velocity, noise) and skinned-mesh emission points follow the system's own scale (a Unity bug fixed in 2017.1
   suggests world velocity and force do); check FrostFire flame rise and Berzerkr particles on the blade in game.
+- **Tiny feather cape** ("shrunken falling with the cape is still too slow"). The in-air cap is now x sqrt(stride) for
+  every size (half the vanilla cape speed at 0.25, was a quarter), matching tiny gravity; on the ground it stays x stride.
+- **Projectile spawn** ("projectiles do not work right when giant"). Every player ranged weapon (bows, crossbows, staffs,
+  thrown spears) has no m_attackOriginJoint, so Attack.GetProjectileSpawnPoint spawns at the feet plus a fixed vanilla
+  offset (bow: 1.5 m up, 1 m ahead, 0.1 m right) and fires parallel to the look direction: a giant's shots left from its
+  shins, far below the crosshair. The offset from the attack origin is multiplied by Overall for the local player (also
+  lowers a tiny player's shots from above its head). Projectile size, speed and drop are unchanged.

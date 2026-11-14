@@ -55,7 +55,11 @@ Sizes are multipliers: 1 = normal, 2 = twice as big, 0.5 = half. Each size allow
   slow motion, and a tiny player falls a bit slower than normal instead of plummeting (half gravity at 0.25, so its
   normal-height jump hangs in the air longer).
   The **feather cape**'s fall-speed limit scales the same way on the ground, so a giant running downhill stays on the
-  slope; in the air a giant's limit grows only with the square root of that factor, so it still floats down gently.
+  slope; in the air it follows the square root of that factor, like a tiny player's gravity, so a giant still floats
+  down gently and a tiny player isn't stuck drifting (half the normal cape speed at 0.25).
+- **Ranged attacks** (bows, crossbows, staffs, thrown spears) leave your body at the height and distance they would
+  on a normal-size character, scaled to your size, so shots line up with the crosshair instead of coming out of a
+  giant's shins.
 - **Feet** are planted by the game's foot IK at a height that follows your foot size, so a tiny player stands up
   straight instead of looking crouched.
 - **Ground and water**: a giant stands firmly on slopes and bumps, and wades through water slowed by the same share as a

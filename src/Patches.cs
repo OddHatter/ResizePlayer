@@ -405,6 +405,27 @@ namespace Oddhatter.ResizePlayer
     }
 
     /// <summary>
+    /// Ranged attacks (bows, crossbows, staffs, thrown spears) spawn the projectile at the attack origin, the feet for every
+    /// player weapon, plus a fixed vanilla offset up, ahead and to the side, then fire it parallel to the look direction.
+    /// Scale that offset with Overall so the shot leaves the resized body where vanilla's leaves a vanilla body, and
+    /// lines up with the scaled camera's crosshair. Attacks run on the attacker's own machine, so only the local player.
+    /// </summary>
+    [HarmonyPatch(typeof(Attack), nameof(Attack.GetProjectileSpawnPoint))]
+    internal static class Attack_GetProjectileSpawnPoint_Patch
+    {
+        private static void Postfix(Attack __instance, ref Vector3 spawnPoint)
+        {
+            if (PlayerScaler.LocalOverall == 1f || __instance.m_character != Player.m_localPlayer || Player.m_localPlayer == null)
+            {
+                return;
+            }
+            Vector3 origin = __instance.GetAttackOrigin().position;
+            Vector3 offset = spawnPoint - origin;
+            spawnPoint = origin + offset.normalized * BodyParts.ProjectileSpawnOffset(offset.magnitude, PlayerScaler.LocalOverall);
+        }
+    }
+
+    /// <summary>
     /// The locomotion animation picks walk/jog/run and its step rate from the speed it is given. The local player moves
     /// LocalStride times faster, so give the animation the vanilla speed: steps at the normal rate, each one longer.
     /// Goes through the synced animator, so other players see the same.

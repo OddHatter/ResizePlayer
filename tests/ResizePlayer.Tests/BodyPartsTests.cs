@@ -92,8 +92,14 @@ namespace ResizePlayer.Tests
         // In the air the cape should still float a giant down: stride x the cap fell too fast (the world isn't scaled).
         // sqrt(stride) keeps it gentle while a fast giant running off a crest still doesn't glide far.
         [Fact] public void MaxFallSpeed_giant_in_air_scales_with_sqrt_stride() => Assert.Equal(10f, BodyParts.MaxFallSpeed(5f, 4f, false), 4);
-        [Fact] public void MaxFallSpeed_tiny_in_air_scales_with_stride() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f, false), 4);
+        [Fact] public void MaxFallSpeed_tiny_in_air_scales_with_sqrt_stride() => Assert.Equal(2.5f, BodyParts.MaxFallSpeed(5f, 0.25f, false), 4);
         [Fact] public void MaxFallSpeed_tiny_on_ground_scales_with_stride() => Assert.Equal(1.25f, BodyParts.MaxFallSpeed(5f, 0.25f, true), 4);
+
+        // Bows, crossbows, staffs and thrown spears spawn their projectile at the character's feet plus a fixed offset
+        // (1.5 m up and 1 m ahead for a bow): on a giant that is inside its shins, well below the crosshair.
+        [Fact] public void ProjectileSpawnOffset_giant_spawns_at_chest_height() => Assert.Equal(15f, BodyParts.ProjectileSpawnOffset(1.5f, 10f), 4);
+        [Fact] public void ProjectileSpawnOffset_tiny_spawns_below_its_head() => Assert.Equal(0.375f, BodyParts.ProjectileSpawnOffset(1.5f, 0.25f), 4);
+        [Fact] public void ProjectileSpawnOffset_normal_size_is_vanilla() => Assert.Equal(1.5f, BodyParts.ProjectileSpawnOffset(1.5f, 1f), 4);
 
         [Fact] public void LandingAltitude_giant_fall_counts_as_shorter() => Assert.Equal(101f, BodyParts.LandingAltitude(110f, 100f, 10f), 4);
 
