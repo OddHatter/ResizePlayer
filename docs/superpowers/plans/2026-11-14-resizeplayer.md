@@ -30,9 +30,9 @@
 ## Review Focus
 
 1. Out-of-range or garbage sizes (0, -1, 100, NaN, from a hand-edited cfg or a friend's ZDO) → clamped to 0.25–4, NaN → 1, no crash. Test: Task 2 `Clamp_*`.
-2. Toggling `Enabled` or changing a value many times → sizes are the same as setting the final value once (no drift). Test: Task 3 Step 5 in-game check.
-3. Respawn after death, relog, or teleport → a new Player object is still scaled, and the camera/reach use the new body. Test: Task 5 Step 4 in-game check.
-4. A friend joins after you set your sizes (values already in your ZDO before their client creates your Player) → they see you scaled immediately, not after your next edit. Test: Task 4 Step 3 (first-read sentinel) plus the in-game check.
+2. Toggling `Enabled` or changing a value many times → sizes are the same as setting the final value once (no drift). Test: Task 3 Step 6 in-game check.
+3. Respawn after death, relog, or teleport → a new Player object is still scaled, and the camera/reach use the new body. Test: Task 4 Step 4 in-game check.
+4. A friend joins after you set your sizes (values already in your ZDO before their client creates your Player) → they see you scaled immediately, not after your next edit. Test: Task 5 Step 3 (first-read sentinel) plus the in-game check.
 5. Extreme part combinations (Hips 0.25 with Legs 4, Arms 4 with Hands 0.25) → each part shows its own size. Test: Task 2 `LocalFactor_extremes`.
 
 ---
@@ -57,7 +57,10 @@
   description "Resize your Viking: giant, tiny, big head, wide hips and more. Live config, synced to friends who have it.",
   dependency `denikson-BepInExPack_Valheim-5.4.2360`). Copy LICENSE, .gitignore and icon.png from TameFollow.
 - [ ] **Step 4: Build.** Run `$DN build -c Release -p:Deploy=true`. Expected: `0 Warning(s) 0 Error(s)` and `Deployed to ...`.
-- [ ] **Step 5: Commit.** `git add -A && git commit -m "Scaffold ResizePlayer: config and live reload"`
+- [ ] **Step 5: Tracker.** Create `tasks/todo.md` (gitignored, as in the sibling mods). Include: a header line (GUID, BepInEx,
+  client-side plus synced), the goal in the user's words, a link to the spec and to this plan, a checklist with one item
+  per task (tick each one as it finishes), and a Findings section for the in-game results. Keep it updated after every task.
+- [ ] **Step 6: Commit.** `git add -A && git commit -m "Scaffold ResizePlayer: config and live reload"`
 
 ### Task 2: BodyParts math (Unity-free) with tests
 
@@ -113,7 +116,7 @@
 **Interfaces:**
 - Consumes: `ResizePlayerPlugin.Enabled`, `ResizePlayerPlugin.Sizes`, `ResizePlayerPlugin.Log`, everything in Task 2.
 - Produces: `internal sealed class PlayerScaler : MonoBehaviour`, with `internal static float LocalOverall` (effective
-  Overall of the local player, 1 when disabled or there's no local player; read by Task 5). Private helpers named in the
+  Overall of the local player, 1 when disabled or there's no local player; read by Task 4). Private helpers named in the
   steps below are used again by Tasks 4 and 5.
 
 - [ ] **Step 1: Patch.** `Patches.cs`: `[HarmonyPatch(typeof(Player), nameof(Player.Awake))]` postfix →
@@ -134,38 +137,29 @@
   parentPart == null ? 1 : target[parentPart])`. Set the root to `rootOriginal * target[Overall]` only when it differs.
   With null, when the previous apply was non-null: restore every bone original and the root, once.
   `LateUpdate`: return if `!_nview.IsValid()`. If `_player == Player.m_localPlayer`, then target = `Enabled ? LocalTarget() : null`,
-  `Apply(target)`, and set `LocalOverall`. (Remote players come in Task 4.) In `OnDestroy`, reset `LocalOverall = 1` if this was the local player.
+  `Apply(target)`, and set `LocalOverall`. (Remote players come in Task 5.) In `OnDestroy`, reset `LocalOverall = 1` if this was the local player.
   On the first local apply, log once: `ZSyncTransform.m_syncScale` and `ZNetView.m_syncInitialScale` of this player (the spec's open question).
-- [ ] **Step 5: Build, deploy, in-game check** (ask the user to run it; report what they see).
+- [ ] **Step 5: Keep feet on the ground when Legs ≠ 1.** Leg bones are scaled after animation and foot IK
+  (`CharacterAnimEvent.UpdateFootIK` runs in OnAnimatorIK, before LateUpdate), so longer legs sink the feet into the
+  ground and shorter legs leave them floating. Fix it by raising or lowering the skeleton:
+  - At the first `EnsureBones` (nothing scaled yet), measure `_restLegLength = (|LeftUpperLeg→LeftLowerLeg| +
+    |LeftLowerLeg→LeftFoot|) / root.lossyScale.y` (world distances). Also cache `_armature = hips.parent` and its original
+    `localPosition`.
+  - In `Apply` with a target: `worldOffset = root.up * (target[Legs] - 1) * _restLegLength * root.lossyScale.y`, then
+    `_armature.localPosition = armatureOriginal + _armature.parent.InverseTransformVector(worldOffset)`. This is an absolute
+    write, so there's no drift.
+  - Restore the original when the target is null. If `hips.parent` is the animator's own transform (no separate armature
+    node), skip the offset and log once.
+- [ ] **Step 6: Build, deploy, in-game check** (ask the user to run it; report what they see).
   `$DN build -c Release -p:Deploy=true` → 0 warnings. In game, editing the cfg while playing (each applies within ~1 s):
   Head 3 → big head with helmet and hair. Hips 2 → wide pelvis/butt, normal legs. Arms 2 + Hands 1 → normal hands.
+  Legs 2 and Legs 0.5 → feet on the ground while standing and running. Feet 2 → big feet, not sunk.
   Overall 3 → giant that can't pass a 1-wide door. Overall 0.5 → tiny. **No drift:** Overall 1 → 3 → 1 → 3 several times,
   and Enabled false → true, ends identical to a single change. Enabled false → vanilla at once.
   Log shows the syncScale/syncInitialScale line.
-- [ ] **Step 6: Commit.** `git commit -m "PlayerScaler: whole-body and per-part scaling of the local player"`
+- [ ] **Step 7: Commit.** `git commit -m "PlayerScaler: whole-body and per-part scaling of the local player"`
 
-### Task 4: Multiplayer sync over ZDO
-
-**Files:**
-- Modify: `src/PlayerScaler.cs`
-
-**Interfaces:**
-- Consumes: `BodyParts.ZdoKey`, `BodyParts.Clamp`, `PartValues`, `Apply`, `LocalTarget` from Task 3.
-
-- [ ] **Step 1: Local writes.** For the local player (also the ZDO owner): each frame compute the publish values
-  (`Enabled ? LocalTarget() : PartValues.Identity()`). If they're not `ApproximatelyEquals(_lastPublished)`, then
-  `zdo.Set(BodyParts.ZdoKey(p), value)` for each changed part, and copy into `_lastPublished`
-  (starts null, so the first frame always publishes).
-- [ ] **Step 2: Remote reads.** For other players: target = `Enabled ? _remote : null`. Refresh `_remote` when
-  `zdo.DataRevision != _lastRevision` or `!_haveRemote`: each part = `Clamp(zdo.GetFloat(ZdoKey(p), 1f))`. Then `Apply(target)`.
-- [ ] **Step 3: First read.** `_haveRemote` starts false, so a player whose ZDO already holds values (a friend joining
-  after you set sizes) is scaled on its first frame.
-- [ ] **Step 4: Build, deploy, in-game check with a friend** who has the same build (ask the user). Each sees the other's
-  sizes. A live edit shows on the other client within ~1 s. Friend joins after you set sizes → scaled immediately.
-  You set Enabled false → the friend sees you normal. A vanilla friend → no errors on either side.
-- [ ] **Step 5: Commit.** `git commit -m "Sync sizes to other players through the player ZDO"`
-
-### Task 5: Reach, swim depth, camera
+### Task 4: Reach, swim depth, camera
 
 **Files:**
 - Modify: `src/PlayerScaler.cs`, `src/Patches.cs`
@@ -186,6 +180,27 @@
   Overall 0.25: swims in shallow water, reach still 5 m. Die at Overall 3 and respawn: still a giant, can still use a chest.
   Enabled false → reach, swim and camera vanilla.
 - [ ] **Step 5: Commit.** `git commit -m "Scale reach, swim depth and camera distance with overall size"`
+
+### Task 5: Multiplayer sync over ZDO
+
+**Files:**
+- Modify: `src/PlayerScaler.cs`
+
+**Interfaces:**
+- Consumes: `BodyParts.ZdoKey`, `BodyParts.Clamp`, `PartValues`, `Apply`, `LocalTarget` from Task 3.
+
+- [ ] **Step 1: Local writes.** For the local player (also the ZDO owner): each frame compute the publish values
+  (`Enabled ? LocalTarget() : PartValues.Identity()`). If they're not `ApproximatelyEquals(_lastPublished)`, then
+  `zdo.Set(BodyParts.ZdoKey(p), value)` for each changed part, and copy into `_lastPublished`
+  (starts null, so the first frame always publishes).
+- [ ] **Step 2: Remote reads.** For other players: target = `Enabled ? _remote : null`. Refresh `_remote` when
+  `zdo.DataRevision != _lastRevision` or `!_haveRemote`: each part = `Clamp(zdo.GetFloat(ZdoKey(p), 1f))`. Then `Apply(target)`.
+- [ ] **Step 3: First read.** `_haveRemote` starts false, so a player whose ZDO already holds values (a friend joining
+  after you set sizes) is scaled on its first frame.
+- [ ] **Step 4: Build, deploy, in-game check with a friend** who has the same build (ask the user). Each sees the other's
+  sizes. A live edit shows on the other client within ~1 s. Friend joins after you set sizes → scaled immediately.
+  You set Enabled false → the friend sees you normal. A vanilla friend → no errors on either side.
+- [ ] **Step 5: Commit.** `git commit -m "Sync sizes to other players through the player ZDO"`
 
 ### Task 6: README, package, review notes
 
