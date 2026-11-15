@@ -1,6 +1,6 @@
 {
   "name": "ResizePlayer",
-  "version_number": "1.0.0",
+  "version_number": "1.0.1",
   "website_url": "https://github.com/OddHatter/ResizePlayer",
   "description": "Resize your Viking: giant, tiny, big head, wide hips and more. Live config, synced to friends who have it.",
   "dependencies": [

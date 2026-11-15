@@ -15,7 +15,7 @@ namespace Oddhatter.ResizePlayer
     {
         public const string Guid = "com.oddhatter.resizeplayer";
         public const string Name = "ResizePlayer";
-        public const string Version = "1.0.0";
+        public const string Version = "1.0.1";
 
         internal static ManualLogSource Log;
 
